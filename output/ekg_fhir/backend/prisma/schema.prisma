@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DIRECT_URL")
+}
+
+model Patient {
+  patient_id            String       @id @default(uuid()) @db.Uuid
+  full_name             String       @db.VarChar(255)
+  medical_record_number String       @unique @db.VarChar(100)
+  gender                String       @db.VarChar(20)
+  birth_date            DateTime     @db.Date
+  height_cm             Float?
+  weight_kg             Float?
+
+  ecg_sessions          EcgSession[]
+
+  @@map("patients")
+}
+
+model Device {
+  device_id      String       @id @default(uuid()) @db.Uuid
+  device_name    String       @db.VarChar(255)
+  serial_number  String       @unique @db.VarChar(100)
+
+  ecg_sessions   EcgSession[]
+
+  @@map("devices")
+}
+
+model EcgSession {
+  session_id         String          @id @default(uuid()) @db.Uuid
+
+  patient_id         String          @db.Uuid
+  device_id          String          @db.Uuid
+
+  examination_time   DateTime
+  duration_sec       Int
+  lead_configuration String          @db.VarChar(100)
+  status             String          @db.VarChar(50)
+  source_type        String          @db.VarChar(50)
+
+  patient            Patient         @relation(fields: [patient_id], references: [patient_id], onDelete: Cascade)
+  device             Device          @relation(fields: [device_id], references: [device_id], onDelete: Restrict)
+
+  ecg_signal_data    EcgSignalData?
+  ecg_analysis       EcgAnalysis?
+
+  @@index([patient_id])
+  @@index([device_id])
+  @@map("ecg_sessions")
+}
+
+model EcgSignalData {
+  signal_id        BigInt      @id @default(autoincrement())
+  session_id       String      @unique @db.Uuid
+
+  lead_type        String      @db.VarChar(50)
+  sampling_rate    Int
+  sample_count     Int
+
+  signal_data      Json
+
+  min_voltage_mv   Float?
+  max_voltage_mv   Float?
+
+  session          EcgSession  @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
+
+  @@index([session_id])
+  @@map("ecg_signal_data")
+}
+
+model EcgAnalysis {
+  analysis_id       String      @id @default(uuid()) @db.Uuid
+  session_id        String      @unique @db.Uuid
+
+  heart_rate_bpm    Int?
+  rhythm_type       String?     @db.VarChar(100)
+
+  pr_interval       Float?
+  qrs_duration      Float?
+  qt_interval       Float?
+  qtc_interval_ms   Float?
+
+  electrical_axis   Float?
+
+  diagnosis         String?     @db.Text
+
+  session           EcgSession  @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
+
+  @@index([session_id])
+  @@map("ecg_analysis")
+}
