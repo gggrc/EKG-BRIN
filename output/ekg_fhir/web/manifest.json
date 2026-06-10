@@ -1,13 +1,15 @@
 {
-    "name": "ekg_fhir",
-    "short_name": "ekg_fhir",
-    "start_url": ".",
+    "name": "EKG-BRIN — Sistem EKG Digital Nasional",
+    "short_name": "EKG-BRIN",
+    "description": "Platform end-to-end untuk digitalisasi dan integrasi data EKG berbasis HL7 FHIR ke SATUSEHAT Kemenkes RI",
+    "start_url": "/",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#0F172A",
+    "theme_color": "#0EA5E9",
+    "orientation": "any",
     "prefer_related_applications": false,
+    "categories": ["health", "medical", "productivity"],
+    "lang": "id",
     "icons": [
         {
             "src": "icons/Icon-192.png",
@@ -30,6 +32,18 @@
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "EKG Viewer",
+            "url": "/ecg/s-001",
+            "icons": [{"src": "icons/Icon-192.png", "sizes": "192x192"}]
+        },
+        {
+            "name": "Data Pasien",
+            "url": "/patients",
+            "icons": [{"src": "icons/Icon-192.png", "sizes": "192x192"}]
         }
     ]
 }
