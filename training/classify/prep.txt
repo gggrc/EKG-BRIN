@@ -1,0 +1,14 @@
+rekaman berlabel: 21388/21799
+distribusi: {'NORM': 9514, 'MI': 5469, 'STTC': 5235, 'CD': 4898, 'HYP': 2649}
+  muat 0/21388
+  muat 2000/21388
+  muat 4000/21388
+  muat 6000/21388
+  muat 8000/21388
+  muat 10000/21388
+  muat 12000/21388
+  muat 14000/21388
+  muat 16000/21388
+  muat 18000/21388
+  muat 20000/21388
+cache -> C:\BRINDATA\EKG-BRIN\training\classify\cache  X(21388, 1000, 12) Y(21388, 5)
