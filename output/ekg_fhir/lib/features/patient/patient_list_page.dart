@@ -1,9 +1,12 @@
 // lib/features/patient/patient_list_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/mock/mock_data.dart';
+import '../../core/providers/data_provider.dart';
 import '../../core/models/patient_model.dart';
+import '../../core/models/user_model.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/router/app_router.dart';
 
 class PatientListPage extends StatefulWidget {
@@ -17,8 +20,9 @@ class _PatientListPageState extends State<PatientListPage> {
   String _search = '';
   String _genderFilter = 'Semua';
 
-  List<PatientModel> get _filtered {
-    return MockData.patients.where((p) {
+  List<PatientModel> _getFiltered(BuildContext context) {
+    final patients = context.watch<DataProvider>().patients;
+    return patients.where((p) {
       final matchSearch = p.fullName.toLowerCase().contains(_search.toLowerCase()) ||
           p.medicalRecordNumber.toLowerCase().contains(_search.toLowerCase());
       final matchGender = _genderFilter == 'Semua' || p.genderDisplay == _genderFilter;
@@ -28,6 +32,7 @@ class _PatientListPageState extends State<PatientListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final filtered = _getFiltered(context);
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -65,17 +70,18 @@ class _PatientListPageState extends State<PatientListPage> {
                 onTap: () => setState(() => _genderFilter = 'Perempuan'),
               ),
               const SizedBox(width: 16),
-              ElevatedButton.icon(
-                onPressed: () => context.go(AppRoutes.patientNew),
-                icon: const Icon(Icons.person_add_rounded, size: 16),
-                label: const Text('Tambah Pasien'),
-              ),
+              if (context.watch<AuthProvider>().currentUser?.role != UserRole.admin)
+                ElevatedButton.icon(
+                  onPressed: () => context.go(AppRoutes.patientNew),
+                  icon: const Icon(Icons.person_add_rounded, size: 16),
+                  label: const Text('Tambah Pasien'),
+                ),
             ],
           ),
           const SizedBox(height: 16),
           // Summary row
           Text(
-            '${_filtered.length} pasien ditemukan',
+            '${filtered.length} pasien ditemukan',
             style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),
@@ -103,10 +109,10 @@ class _PatientListPageState extends State<PatientListPage> {
           // Patient rows
           Expanded(
             child: ListView.separated(
-              itemCount: _filtered.length,
+              itemCount: filtered.length,
               separatorBuilder: (_, __) => const SizedBox(height: 2),
               itemBuilder: (context, i) {
-                final p = _filtered[i];
+                final p = filtered[i];
                 return _PatientRow(patient: p);
               },
             ),
@@ -160,7 +166,10 @@ class _PatientRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastEcg = patient.lastEcgDate;
+    final allSessions = context.watch<DataProvider>().ecgSessions.where((s) => s.patientId == patient.patientId).toList();
+    final totalSessions = allSessions.length;
+    final lastEcg = allSessions.isNotEmpty ? allSessions.first.examinationTime : null;
+
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () => context.go('/patients/${patient.patientId}'),
@@ -208,7 +217,7 @@ class _PatientRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  '${patient.totalEcgSessions} sesi',
+                  '$totalSessions sesi',
                   style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
                   textAlign: TextAlign.center,
                 ),

@@ -1,9 +1,15 @@
 // lib/features/diagnosis/report_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/mock/mock_data.dart';
+import '../../core/providers/data_provider.dart';
 import '../../core/router/app_router.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 
 class ReportPage extends StatelessWidget {
   final String sessionId;
@@ -11,9 +17,117 @@ class ReportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final session = MockData.ecgSessions.firstWhere((s) => s.sessionId == sessionId, orElse: () => MockData.ecgSessions.first);
-    final patient = MockData.patients.firstWhere((p) => p.patientId == session.patientId, orElse: () => MockData.patients.first);
+    final sessions = context.watch<DataProvider>().ecgSessions;
+    final patients = context.watch<DataProvider>().patients;
+    
+    final session = sessions.firstWhere((s) => s.sessionId == sessionId, orElse: () => sessions.first);
+    final patient = patients.firstWhere((p) => p.patientId == session.patientId, orElse: () => patients.first);
     final analysis = session.analysis;
+
+    void handleFhirExport() {
+      final fhirJson = {
+        "resourceType": "Bundle",
+        "type": "document",
+        "entry": [
+          {
+            "resource": {
+              "resourceType": "Patient",
+              "id": patient.patientId,
+              "name": [{"text": patient.fullName}],
+              "gender": patient.gender == 'M' ? 'male' : 'female',
+              "birthDate": "${patient.birthDate.year}-${patient.birthDate.month.toString().padLeft(2, '0')}-${patient.birthDate.day.toString().padLeft(2, '0')}"
+            }
+          },
+          {
+            "resource": {
+              "resourceType": "Observation",
+              "id": session.sessionId,
+              "status": "final",
+              "code": {
+                "coding": [{"system": "http://loinc.org", "code": "13132-7", "display": "EKG 12 channel"}]
+              },
+              "subject": {"reference": "Patient/${patient.patientId}"},
+              "valueString": analysis?.doctorDiagnosis ?? "Belum ada diagnosis"
+            }
+          }
+        ]
+      };
+
+      final jsonString = const JsonEncoder.withIndent('  ').convert(fhirJson);
+      final blob = html.Blob([jsonString], 'application/json');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute("download", "fhir_export_${session.sessionId}.json")
+        ..click();
+      html.Url.revokeObjectUrl(url);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File FHIR Export berhasil di-download!')),
+      );
+    }
+
+    Future<void> handleDownloadPdf() async {
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Center(child: pw.Text('Laporan Medis EKG', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold))),
+                pw.SizedBox(height: 20),
+                pw.Text('Data Pasien', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                pw.Divider(),
+                pw.Text('Nama: ${patient.fullName}'),
+                pw.Text('No. RM: ${patient.medicalRecordNumber}'),
+                pw.Text('Jenis Kelamin: ${patient.gender == 'M' ? 'Laki-laki' : 'Perempuan'}'),
+                pw.SizedBox(height: 20),
+                pw.Text('Data Rekaman', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                pw.Divider(),
+                pw.Text('ID Sesi: ${session.sessionId}'),
+                pw.Text('Perangkat: ${session.deviceName}'),
+                pw.Text('Tanggal: ${session.examinationTime.day}/${session.examinationTime.month}/${session.examinationTime.year}'),
+                pw.SizedBox(height: 20),
+                pw.Text('Hasil Analisis AI', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                pw.Divider(),
+                pw.Text(analysis?.aiInterpretation ?? 'Tidak ada hasil AI'),
+                pw.SizedBox(height: 20),
+                pw.Text('Diagnosis Dokter', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                pw.Divider(),
+                pw.Text(analysis?.doctorDiagnosis ?? 'Belum ada diagnosis'),
+                pw.SizedBox(height: 40),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.end,
+                  children: [
+                    pw.Column(
+                      children: [
+                        pw.Text('Dokter Pemeriksa'),
+                        pw.SizedBox(height: 40),
+                        pw.Text(analysis?.approvedBy ?? '___________________'),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      final bytes = await pdf.save();
+      final blob = html.Blob([bytes], 'application/pdf');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute("download", "Laporan_EKG_${session.sessionId}.pdf")
+        ..click();
+      html.Url.revokeObjectUrl(url);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Laporan PDF berhasil di-download!')),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -26,9 +140,13 @@ class ReportPage extends StatelessWidget {
               const SizedBox(width: 8),
               const Text('Laporan EKG', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
               const Spacer(),
-              OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.share_rounded, size: 16), label: const Text('FHIR Export')),
+              OutlinedButton.icon(onPressed: handleFhirExport, icon: const Icon(Icons.share_rounded, size: 16), label: const Text('FHIR Export')),
               const SizedBox(width: 12),
-              ElevatedButton.icon(onPressed: () {}, icon: const Icon(Icons.download_rounded, size: 16), label: const Text('Download PDF')),
+              ElevatedButton.icon(
+                onPressed: handleDownloadPdf,
+                icon: const Icon(Icons.download_rounded, size: 16),
+                label: const Text('Download PDF'),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -126,7 +244,7 @@ class ReportPage extends StatelessWidget {
                     _ReportSection(title: 'INTERPRETASI AI', children: [
                       Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: AppColors.roleDoctor.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+                        decoration: BoxDecoration(color: AppColors.primaryContainer, borderRadius: BorderRadius.circular(8)),
                         child: Text(analysis.aiInterpretation!, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.6)),
                       ),
                     ]),
@@ -137,7 +255,7 @@ class ReportPage extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(color: AppColors.successContainer, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.success.withOpacity(0.2))),
-                        child: Text(analysis.doctorDiagnosis!, style: const TextStyle(fontSize: 13, color: AppColors.successLight, height: 1.6)),
+                        child: Text(analysis.doctorDiagnosis!, style: const TextStyle(fontSize: 13, color: AppColors.success, height: 1.6)),
                       ),
                       if (analysis.isApproved == true && analysis.approvedBy != null) ...[
                         const SizedBox(height: 12),

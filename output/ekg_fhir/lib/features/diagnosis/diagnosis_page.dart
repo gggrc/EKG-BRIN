@@ -1,8 +1,11 @@
 // lib/features/diagnosis/diagnosis_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/mock/mock_data.dart';
+import '../../core/models/ecg_models.dart';
+import '../../core/providers/data_provider.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/router/app_router.dart';
 
 class DiagnosisPage extends StatefulWidget {
@@ -16,18 +19,18 @@ class DiagnosisPage extends StatefulWidget {
 class _DiagnosisPageState extends State<DiagnosisPage> {
   final _diagnosisCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
-  bool _isApproved = false;
+  final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    final session = MockData.ecgSessions.firstWhere((s) => s.sessionId == widget.sessionId, orElse: () => MockData.ecgSessions.first);
+    final sessions = context.read<DataProvider>().ecgSessions;
+    final session = sessions.firstWhere((s) => s.sessionId == widget.sessionId, orElse: () => sessions.first);
     if (session.analysis?.doctorDiagnosis != null) {
       _diagnosisCtrl.text = session.analysis!.doctorDiagnosis!;
     }
-    _isApproved = session.analysis?.isApproved ?? false;
-  }
+    }
 
   Future<void> _handleSave({bool approve = false}) async {
     if (_diagnosisCtrl.text.isEmpty) {
@@ -35,19 +38,49 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
       return;
     }
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    setState(() { _isLoading = false; _isApproved = approve; });
+    setState(() { _isLoading = false; });
     if (mounted) {
+      final dataProvider = context.read<DataProvider>();
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.currentUser;
+
+      dataProvider.updateDiagnosis(widget.sessionId, _diagnosisCtrl.text, approve);
+
+      if (user != null) {
+        final session = dataProvider.ecgSessions.firstWhere((s) => s.sessionId == widget.sessionId);
+        dataProvider.addActivityLog(ActivityLogModel(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          userName: user.name,
+          action: approve ? 'Menyetujui diagnosis' : 'Menyimpan draft diagnosis',
+          target: 'Sesi ${session.sessionId} (${session.patientName})',
+          time: DateTime.now(),
+          type: approve ? 'approve' : 'system',
+        ));
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(approve ? 'Diagnosis disetujui dan laporan dibuat' : 'Diagnosis disimpan sebagai draft')),
       );
-      if (approve) context.go('/report/${widget.sessionId}');
+
+      if (approve) {
+        // Find next pending session
+        final sessions = dataProvider.ecgSessions;
+        final pending = sessions.where((s) => s.status == EcgSessionStatus.pending && s.sessionId != widget.sessionId).toList();
+        
+        if (pending.isNotEmpty) {
+          context.go('/diagnosis/${pending.first.sessionId}');
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Melanjutkan ke pasien berikutnya')));
+        } else {
+          context.go(AppRoutes.dashboard);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Semua antrean diagnosis selesai!')));
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final session = MockData.ecgSessions.firstWhere((s) => s.sessionId == widget.sessionId, orElse: () => MockData.ecgSessions.first);
+    final sessions = context.watch<DataProvider>().ecgSessions;
+    final session = sessions.firstWhere((s) => s.sessionId == widget.sessionId, orElse: () => sessions.first);
     final analysis = session.analysis;
 
     return SingleChildScrollView(
@@ -213,21 +246,58 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.borderLight)),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Panduan Diagnosis', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                  SizedBox(height: 12),
-                  _GuideItem(icon: Icons.info_outline_rounded, text: 'Interpretasi AI hanya sebagai referensi, bukan pengganti penilaian klinis'),
-                  _GuideItem(icon: Icons.check_circle_outline_rounded, text: 'Klik "Setujui & Buat Laporan" untuk finalisasi dan membuat PDF'),
-                  _GuideItem(icon: Icons.cloud_sync_rounded, text: 'Laporan yang disetujui akan otomatis dikirim ke SATUSEHAT'),
-                  _GuideItem(icon: Icons.history_rounded, text: 'Semua perubahan dicatat dalam audit log'),
+                  const Text('Antrean Diagnosis', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  const SizedBox(height: 12),
+                  _buildPendingDropdown(context, sessions),
+                  const Divider(height: 32, color: AppColors.borderLight),
+                  const Text('Panduan Diagnosis', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  const SizedBox(height: 12),
+                  const _GuideItem(icon: Icons.info_outline_rounded, text: 'Interpretasi AI hanya sebagai referensi, bukan pengganti penilaian klinis'),
+                  const _GuideItem(icon: Icons.check_circle_outline_rounded, text: 'Klik "Setujui & Buat Laporan" untuk lanjut ke antrean berikutnya'),
+                  const _GuideItem(icon: Icons.cloud_sync_rounded, text: 'Laporan yang disetujui akan diarsipkan dan dapat diekspor ke FHIR'),
+                  const _GuideItem(icon: Icons.history_rounded, text: 'Semua perubahan dicatat dalam audit log'),
                 ],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPendingDropdown(BuildContext context, List<EcgSession> allSessions) {
+    final pending = allSessions.where((s) => s.status == EcgSessionStatus.pending).toList();
+    if (pending.isEmpty) {
+      return const Text('Tidak ada antrean', style: TextStyle(fontSize: 12, color: AppColors.textMuted));
+    }
+
+    // Pastikan session saat ini ada di list dropdown (biarpun sudah selesai, agar dropdown tidak error jika value tidak ada di item)
+    final currentInPending = pending.any((s) => s.sessionId == widget.sessionId);
+    final items = List<EcgSession>.from(pending);
+    if (!currentInPending) {
+      final currentSession = allSessions.firstWhere((s) => s.sessionId == widget.sessionId, orElse: () => allSessions.first);
+      items.add(currentSession);
+    }
+
+    return DropdownButtonFormField<String>(
+      value: widget.sessionId,
+      isExpanded: true,
+      dropdownColor: AppColors.surface,
+      decoration: const InputDecoration(
+        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      items: items.map((s) => DropdownMenuItem(
+        value: s.sessionId,
+        child: Text('${s.patientName} (${s.sessionId})', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+      )).toList(),
+      onChanged: (val) {
+        if (val != null && val != widget.sessionId) {
+          context.go('/diagnosis/$val');
+        }
+      },
     );
   }
 }

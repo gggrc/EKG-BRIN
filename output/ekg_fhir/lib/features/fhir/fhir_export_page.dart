@@ -1,7 +1,10 @@
 // lib/features/fhir/fhir_export_page.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/mock/mock_data.dart';
+import '../../core/models/ecg_models.dart';
+import '../../core/providers/data_provider.dart';
+import '../../core/providers/auth_provider.dart';
 
 class FhirExportPage extends StatefulWidget {
   const FhirExportPage({super.key});
@@ -23,6 +26,20 @@ class _FhirExportPageState extends State<FhirExportPage> {
     await Future.delayed(const Duration(seconds: 2));
     setState(() => _isSyncing = false);
     if (mounted) {
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.currentUser;
+
+      if (user != null) {
+        context.read<DataProvider>().addActivityLog(ActivityLogModel(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          userName: user.name,
+          action: 'Sinkronisasi SATUSEHAT',
+          target: '${_selectedSessions.length} rekam EKG berhasil dikirim',
+          time: DateTime.now(),
+          type: 'sync',
+        ));
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${_selectedSessions.length} sesi berhasil dikirim ke SATUSEHAT!')),
       );
@@ -32,7 +49,7 @@ class _FhirExportPageState extends State<FhirExportPage> {
 
   @override
   Widget build(BuildContext context) {
-    final sessions = MockData.ecgSessions.where((s) => s.status.name == 'completed').toList();
+    final sessions = context.watch<DataProvider>().ecgSessions.where((s) => s.status == EcgSessionStatus.completed).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -180,7 +197,7 @@ class _FhirExportPageState extends State<FhirExportPage> {
   void _showFhirJson(BuildContext context, String sessionId) {
     showDialog(
       context: context,
-      builder: (_) => Dialog(
+      builder: (dialogContext) => Dialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
@@ -194,7 +211,7 @@ class _FhirExportPageState extends State<FhirExportPage> {
                 children: [
                   const Text('FHIR Observation Resource', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                   const Spacer(),
-                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
+                  IconButton(onPressed: () => Navigator.pop(dialogContext), icon: const Icon(Icons.close_rounded)),
                 ],
               ),
               const Divider(color: AppColors.borderLight),

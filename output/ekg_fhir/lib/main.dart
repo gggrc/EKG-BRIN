@@ -5,12 +5,16 @@ import 'package:provider/provider.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/providers/auth_provider.dart';
+import 'core/providers/data_provider.dart';
 import 'core/router/app_router.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => DataProvider()),
+      ],
       child: const EkgBrinApp(),
     ),
   );
@@ -37,7 +41,7 @@ class _EkgBrinAppState extends State<EkgBrinApp> {
     return MaterialApp.router(
       title: 'EKG-BRIN — Sistem HL7 FHIR',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
       routerConfig: _router,
     );
   }

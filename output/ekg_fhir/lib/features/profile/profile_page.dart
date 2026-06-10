@@ -19,6 +19,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _institutionCtrl = TextEditingController();
+  final _specialtyCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -27,13 +28,13 @@ class _ProfilePageState extends State<ProfilePage> {
     _nameCtrl.text = user?.name ?? '';
     _phoneCtrl.text = user?.phoneNumber ?? '';
     _institutionCtrl.text = user?.institution ?? '';
+    _specialtyCtrl.text = user?.specialty ?? '';
   }
 
   Color _roleColor(UserRole role) {
     switch (role) {
       case UserRole.patient: return AppColors.rolePatient;
-      case UserRole.healthcareWorker: return AppColors.roleNakes;
-      case UserRole.doctor: return AppColors.roleDoctor;
+      case UserRole.clinician: return AppColors.roleClinician;
       case UserRole.admin: return AppColors.roleAdmin;
     }
   }
@@ -154,11 +155,25 @@ class _ProfilePageState extends State<ProfilePage> {
                           controller: _institutionCtrl,
                           decoration: const InputDecoration(labelText: 'Institusi', prefixIcon: Icon(Icons.business_outlined, size: 18)),
                         ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _specialtyCtrl,
+                          decoration: const InputDecoration(labelText: 'Spesialitas / Bidang', prefixIcon: Icon(Icons.star_outline_rounded, size: 18)),
+                        ),
                         const SizedBox(height: 20),
                         Row(
                           children: [
                             ElevatedButton(
-                              onPressed: () => setState(() => _isEditing = false),
+                              onPressed: () {
+                                context.read<AuthProvider>().updateProfile(
+                                  name: _nameCtrl.text,
+                                  phone: _phoneCtrl.text.isEmpty ? null : _phoneCtrl.text,
+                                  institution: _institutionCtrl.text.isEmpty ? null : _institutionCtrl.text,
+                                  specialty: _specialtyCtrl.text.isEmpty ? null : _specialtyCtrl.text,
+                                );
+                                setState(() => _isEditing = false);
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil berhasil diperbarui')));
+                              },
                               child: const Text('Simpan Perubahan'),
                             ),
                           ],
@@ -285,7 +300,7 @@ class _PermChip extends StatelessWidget {
         children: [
           Icon(granted ? Icons.check_rounded : Icons.close_rounded, size: 12, color: granted ? AppColors.success : AppColors.textMuted),
           const SizedBox(width: 5),
-          Text(label, style: TextStyle(fontSize: 11, color: granted ? AppColors.successLight : AppColors.textMuted, fontWeight: granted ? FontWeight.w600 : FontWeight.w400)),
+          Text(label, style: TextStyle(fontSize: 11, color: granted ? AppColors.success : AppColors.textMuted, fontWeight: granted ? FontWeight.w600 : FontWeight.w400)),
         ],
       ),
     );

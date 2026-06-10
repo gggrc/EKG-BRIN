@@ -6,9 +6,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/data_provider.dart';
 import '../../core/models/user_model.dart';
 import '../../core/models/ecg_models.dart';
 import '../../core/mock/mock_data.dart';
@@ -29,7 +31,6 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
   double _zoomLevel = 1.0;
   bool _showGrid = true;
   bool _showAnnotations = true;
-  String _selectedLead = 'II'; // For rhythm strip
 
   @override
   void initState() {
@@ -39,7 +40,7 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
   }
 
   void _loadSession() {
-    final sessions = MockData.ecgSessions;
+    final sessions = context.read<DataProvider>().ecgSessions;
     try {
       _session = sessions.firstWhere((s) => s.sessionId == widget.sessionId);
     } catch (_) {
@@ -149,16 +150,16 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
             onTap: () => setState(() => _showAnnotations = !_showAnnotations),
           ),
           const SizedBox(width: 16),
-          if (role == UserRole.doctor || role == UserRole.admin)
+          if (role == UserRole.clinician || role == UserRole.admin)
             OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: () => context.push('/report/${s.sessionId}'),
               icon: const Icon(Icons.download_rounded, size: 16),
               label: const Text('Export PDF', style: TextStyle(fontSize: 12)),
             ),
-          if (role == UserRole.doctor || role == UserRole.admin) ...[
+          if (role == UserRole.clinician || role == UserRole.admin) ...[
             const SizedBox(width: 8),
             ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: () => context.push('/report/${s.sessionId}'),
               icon: const Icon(Icons.share_rounded, size: 16),
               label: const Text('FHIR Export', style: TextStyle(fontSize: 12)),
             ),
@@ -211,18 +212,18 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
                 const SizedBox(width: 8),
                 _MeasureChip(label: 'Axis', value: a.electricalAxisDeg != null ? '${a.electricalAxisDeg!.round()}°' : '-', isNormal: true),
                 const SizedBox(width: 16),
-                if (a.aiInterpretation != null && (role == UserRole.doctor || role == UserRole.admin))
+                if (a.aiInterpretation != null && (role == UserRole.clinician || role == UserRole.admin))
                   Container(
                     constraints: const BoxConstraints(maxWidth: 400),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppColors.roleDoctor.withOpacity(0.1),
+                      color: AppColors.roleClinician.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.roleDoctor.withOpacity(0.3)),
+                      border: Border.all(color: AppColors.roleClinician.withOpacity(0.25)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.psychology_rounded, color: AppColors.roleDoctor, size: 16),
+                        const Icon(Icons.psychology_rounded, color: AppColors.roleClinician, size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -251,7 +252,7 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
                   const SizedBox(width: 8),
                   const Text('Diagnosis: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success)),
                   Expanded(
-                    child: Text(a.doctorDiagnosis!, style: const TextStyle(fontSize: 12, color: AppColors.successLight)),
+                    child: Text(a.doctorDiagnosis!, style: const TextStyle(fontSize: 12, color: AppColors.success)),
                   ),
                 ],
               ),

@@ -1,16 +1,55 @@
 // lib/features/admin/admin_panel_page.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/mock/mock_data.dart';
+import '../../core/models/ecg_models.dart';
+import '../../core/providers/data_provider.dart';
 import '../../core/router/app_router.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 
 class AdminPanelPage extends StatelessWidget {
   const AdminPanelPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final analytics = MockData.analyticsData;
+    final dataProvider = context.watch<DataProvider>();
+    final analytics = dataProvider.analytics;
+    final logs = dataProvider.activityLogs;
+
+    void exportDataset() {
+      final csvData = [
+        ['ID', 'User', 'Action', 'Target', 'Time', 'Type'],
+        ...logs.map((l) => [
+          l.id,
+          '"${l.userName}"',
+          '"${l.action}"',
+          '"${l.target}"',
+          l.time.toString(),
+          l.type
+        ])
+      ].map((row) => row.join(',')).join('\n');
+
+      final blob = html.Blob([csvData], 'text/csv');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute("download", "audit_log_export.csv")
+        ..click();
+      html.Url.revokeObjectUrl(url);
+
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dataset Audit Log berhasil di-export')));
+      
+      dataProvider.addActivityLog(ActivityLogModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        userName: 'Admin',
+        action: 'Export dataset',
+        target: '${logs.length} rekam aktivitas',
+        time: DateTime.now(),
+        type: 'export',
+      ));
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -30,14 +69,17 @@ class AdminPanelPage extends StatelessWidget {
               const SizedBox(width: 16),
               _AdminNavCard(icon: Icons.cloud_sync_rounded, title: 'FHIR Export', subtitle: '${analytics['fhirSyncedCount']} tersinkron', color: AppColors.success, onTap: () => context.go(AppRoutes.fhirExport)),
               const SizedBox(width: 16),
-              _AdminNavCard(icon: Icons.download_rounded, title: 'Export Dataset', subtitle: 'Download untuk riset', color: AppColors.roleAdmin, onTap: () {}),
+              _AdminNavCard(icon: Icons.download_rounded, title: 'Export Dataset', subtitle: 'Download log aktivitas', color: AppColors.roleAdmin, onTap: exportDataset),
             ],
           ),
           const SizedBox(height: 24),
           // Audit log
           const Text('Audit Log — Aktivitas Terbaru', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 12),
-          ...(_auditLogs().map((log) => _AuditLogItem(log: log))),
+          if (logs.isEmpty)
+            const Text('Belum ada log aktivitas', style: TextStyle(color: AppColors.textMuted))
+          else
+            ...logs.take(15).map((log) => _AuditLogItem(log: log)),
           const SizedBox(height: 24),
           // System status
           Row(
@@ -52,15 +94,6 @@ class AdminPanelPage extends StatelessWidget {
       ),
     );
   }
-
-  List<Map<String, dynamic>> _auditLogs() => [
-    {'user': 'dr. Andi Prasetyo, Sp.JP', 'action': 'Menyetujui diagnosis', 'target': 'Sesi s-001 (Budi Santoso)', 'time': '08/06/2026 10:45', 'type': 'approve'},
-    {'user': 'Siti Rahayu, Amd.Kep', 'action': 'Upload EKG baru', 'target': 'Hendra Wijaya (RM-2025-002)', 'time': '08/06/2026 11:00', 'type': 'upload'},
-    {'user': 'System', 'action': 'Sinkronisasi SATUSEHAT', 'target': '3 rekam EKG berhasil dikirim', 'time': '08/06/2026 06:00', 'type': 'sync'},
-    {'user': 'Peneliti BRIN', 'action': 'Export dataset', 'target': '247 rekam EKG (Jan-Jun 2026)', 'time': '07/06/2026 17:30', 'type': 'export'},
-    {'user': 'Peneliti BRIN', 'action': 'Tambah user baru', 'target': 'dr. Maya Kusuma, Sp.PD', 'time': '07/06/2026 09:15', 'type': 'user'},
-    {'user': 'System', 'action': 'Backup database', 'target': 'Backup otomatis harian', 'time': '07/06/2026 00:00', 'type': 'system'},
-  ];
 }
 
 class _AdminNavCard extends StatelessWidget {
@@ -104,15 +137,15 @@ class _AdminNavCard extends StatelessWidget {
 }
 
 class _AuditLogItem extends StatelessWidget {
-  final Map<String, dynamic> log;
+  final ActivityLogModel log;
   const _AuditLogItem({required this.log});
 
   @override
   Widget build(BuildContext context) {
     final colors = {'approve': AppColors.success, 'upload': AppColors.primary, 'sync': AppColors.secondary, 'export': AppColors.roleAdmin, 'user': AppColors.warning, 'system': AppColors.textMuted};
     final icons = {'approve': Icons.check_circle_rounded, 'upload': Icons.upload_rounded, 'sync': Icons.cloud_sync_rounded, 'export': Icons.download_rounded, 'user': Icons.person_add_rounded, 'system': Icons.settings_rounded};
-    final color = colors[log['type']] ?? AppColors.textMuted;
-    final icon = icons[log['type']] ?? Icons.info_rounded;
+    final color = colors[log.type] ?? AppColors.textMuted;
+    final icon = icons[log.type] ?? Icons.info_rounded;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -134,14 +167,14 @@ class _AuditLogItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(children: [
-                Text(log['user'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                Text(log.userName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                 const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
-                Text(log['action'] as String, style: TextStyle(fontSize: 12, color: color)),
+                Text(log.action, style: TextStyle(fontSize: 12, color: color)),
               ]),
-              Text(log['target'] as String, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+              Text(log.target, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
             ],
           )),
-          Text(log['time'] as String, style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontFamily: 'monospace')),
+          Text('${log.time.day}/${log.time.month}/${log.time.year} ${log.time.hour.toString().padLeft(2, '0')}:${log.time.minute.toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontFamily: 'monospace')),
         ],
       ),
     );

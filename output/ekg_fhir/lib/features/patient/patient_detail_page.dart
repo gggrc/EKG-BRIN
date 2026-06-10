@@ -1,8 +1,11 @@
 // lib/features/patient/patient_detail_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/mock/mock_data.dart';
+import '../../core/providers/data_provider.dart';
+import '../../core/providers/auth_provider.dart';
+import '../../core/models/user_model.dart';
 import '../../core/router/app_router.dart';
 
 class PatientDetailPage extends StatelessWidget {
@@ -11,11 +14,13 @@ class PatientDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final patient = MockData.patients.firstWhere(
+    final patients = context.watch<DataProvider>().patients;
+    final allSessions = context.watch<DataProvider>().ecgSessions;
+    final patient = patients.firstWhere(
       (p) => p.patientId == patientId,
-      orElse: () => MockData.patients.first,
+      orElse: () => patients.first,
     );
-    final sessions = MockData.ecgSessions.where((s) => s.patientId == patientId).toList();
+    final sessions = allSessions.where((s) => s.patientId == patientId).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -195,15 +200,16 @@ class PatientDetailPage extends StatelessWidget {
                                 ),
                               ],
                               const SizedBox(height: 8),
-                              ElevatedButton(
-                                onPressed: () => context.go('/ecg/${s.sessionId}'),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              if (context.watch<AuthProvider>().currentUser?.role != UserRole.admin)
+                                ElevatedButton(
+                                  onPressed: () => context.go('/ecg/${s.sessionId}'),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text('Lihat EKG', style: TextStyle(fontSize: 11)),
                                 ),
-                                child: const Text('Lihat EKG', style: TextStyle(fontSize: 11)),
-                              ),
                             ],
                           ),
                         );

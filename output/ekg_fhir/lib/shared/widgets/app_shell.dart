@@ -41,10 +41,11 @@ class _AppShellState extends State<AppShell> {
       backgroundColor: AppColors.background,
       body: Row(
         children: [
-          // Sidebar
+          // Sidebar — selalu tampil; expand/collapse diatur di dalam widget
           AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: _sidebarExpanded ? 260 : 72,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOut,
+            width: _sidebarExpanded ? 260 : 68,
             child: _Sidebar(
               expanded: _sidebarExpanded,
               user: user,
@@ -99,12 +100,18 @@ class _Sidebar extends StatelessWidget {
 
     return Container(
       color: AppColors.surface,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          right: BorderSide(color: AppColors.borderLight),
+        ),
+      ),
       child: Column(
         children: [
-          // Logo area
+          // Logo area — tombol toggle SELALU tampil di sini
           Container(
             height: 64,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: const BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: AppColors.borderLight),
@@ -112,17 +119,28 @@ class _Sidebar extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(8),
+                // Toggle button — selalu tampil pertama
+                IconButton(
+                  onPressed: onToggle,
+                  icon: Icon(
+                    expanded ? Icons.menu_open_rounded : Icons.menu_rounded,
+                    size: 24,
+                    color: AppColors.primaryDark,
                   ),
-                  child: const Icon(Icons.monitor_heart, color: Colors.white, size: 20),
+                  tooltip: expanded ? 'Tutup sidebar' : 'Buka sidebar',
                 ),
                 if (expanded) ...[
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 4),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: const Icon(Icons.monitor_heart, color: Colors.white, size: 17),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -131,7 +149,7 @@ class _Sidebar extends StatelessWidget {
                         Text(
                           'EKG-BRIN',
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
                           ),
@@ -146,44 +164,33 @@ class _Sidebar extends StatelessWidget {
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: onToggle,
-                    icon: const Icon(Icons.chevron_left, size: 18, color: AppColors.textMuted),
-                    tooltip: 'Collapse sidebar',
-                  ),
-                ] else
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: IconButton(
-                      onPressed: onToggle,
-                      icon: const Icon(Icons.chevron_right, size: 18, color: AppColors.textMuted),
-                    ),
-                  ),
+                ],
               ],
             ),
           ),
 
-          // User info chip
+          // User info chip — hanya saat expanded
           if (expanded && u != null)
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.borderLight),
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 16,
-                      backgroundColor: _roleColor(role).withOpacity(0.2),
+                      backgroundColor: _roleColor(role).withOpacity(0.15),
                       child: Text(
                         u.name.split(' ').first[0],
                         style: TextStyle(
                           color: _roleColor(role),
                           fontWeight: FontWeight.w700,
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                       ),
                     ),
@@ -201,10 +208,11 @@ class _Sidebar extends StatelessWidget {
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
+                          const SizedBox(height: 3),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: _roleColor(role).withOpacity(0.15),
+                              color: _roleColor(role).withOpacity(0.12),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -222,17 +230,35 @@ class _Sidebar extends StatelessWidget {
                   ],
                 ),
               ),
+            )
+          else if (!expanded && u != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: _roleColor(role).withOpacity(0.15),
+                child: Text(
+                  u.name.split(' ').first[0],
+                  style: TextStyle(
+                    color: _roleColor(role),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
             ),
 
           // Navigation items
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: EdgeInsets.symmetric(
+                horizontal: expanded ? 8 : 6,
+                vertical: 4,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (expanded)
-                    _SectionLabel('UTAMA'),
+                  if (expanded) _SectionLabel('UTAMA'),
                   _NavItem(
                     icon: Icons.dashboard_rounded,
                     label: 'Dashboard',
@@ -240,14 +266,15 @@ class _Sidebar extends StatelessWidget {
                     currentPath: currentPath,
                     expanded: expanded,
                   ),
-                  _NavItem(
-                    icon: Icons.monitor_heart_rounded,
-                    label: 'EKG Viewer',
-                    route: '/ecg/s-001',
-                    currentPath: currentPath,
-                    expanded: expanded,
-                    matchPrefix: '/ecg',
-                  ),
+                  if (role != UserRole.admin)
+                    _NavItem(
+                      icon: Icons.monitor_heart_rounded,
+                      label: 'EKG Viewer',
+                      route: '/ecg/s-001',
+                      currentPath: currentPath,
+                      expanded: expanded,
+                      matchPrefix: '/ecg',
+                    ),
                   _NavItem(
                     icon: Icons.history_rounded,
                     label: 'Riwayat EKG',
@@ -257,7 +284,7 @@ class _Sidebar extends StatelessWidget {
                   ),
 
                   if (role != UserRole.patient) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     if (expanded) _SectionLabel('KLINIS'),
                     _NavItem(
                       icon: Icons.people_rounded,
@@ -267,24 +294,23 @@ class _Sidebar extends StatelessWidget {
                       expanded: expanded,
                       matchPrefix: '/patients',
                     ),
-                    _NavItem(
-                      icon: Icons.upload_file_rounded,
-                      label: 'Akuisisi Sinyal',
-                      route: AppRoutes.acquisition,
-                      currentPath: currentPath,
-                      expanded: expanded,
-                    ),
-                  ],
-
-                  if (role == UserRole.doctor || role == UserRole.admin) ...[
-                    _NavItem(
-                      icon: Icons.medical_information_rounded,
-                      label: 'Diagnosis',
-                      route: '/diagnosis/s-001',
-                      currentPath: currentPath,
-                      expanded: expanded,
-                      matchPrefix: '/diagnosis',
-                    ),
+                    if (role != UserRole.admin) ...[
+                      _NavItem(
+                        icon: Icons.upload_file_rounded,
+                        label: 'Akuisisi Sinyal',
+                        route: AppRoutes.acquisition,
+                        currentPath: currentPath,
+                        expanded: expanded,
+                      ),
+                      _NavItem(
+                        icon: Icons.medical_information_rounded,
+                        label: 'Diagnosis',
+                        route: '/diagnosis/s-001',
+                        currentPath: currentPath,
+                        expanded: expanded,
+                        matchPrefix: '/diagnosis',
+                      ),
+                    ],
                     _NavItem(
                       icon: Icons.share_rounded,
                       label: 'FHIR Export',
@@ -295,7 +321,7 @@ class _Sidebar extends StatelessWidget {
                   ],
 
                   if (role == UserRole.admin) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     if (expanded) _SectionLabel('ADMINISTRASI'),
                     _NavItem(
                       icon: Icons.admin_panel_settings_rounded,
@@ -320,7 +346,7 @@ class _Sidebar extends StatelessWidget {
                     ),
                   ],
 
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   if (expanded) _SectionLabel('AKUN'),
                   _NavItem(
                     icon: Icons.notifications_rounded,
@@ -344,7 +370,7 @@ class _Sidebar extends StatelessWidget {
 
           // Logout
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: AppColors.borderLight)),
             ),
@@ -355,11 +381,15 @@ class _Sidebar extends StatelessWidget {
                 context.go(AppRoutes.login);
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: EdgeInsets.symmetric(
+                  horizontal: expanded ? 12 : 8,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
+                  mainAxisAlignment: expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
                   children: [
                     const Icon(Icons.logout_rounded, color: AppColors.danger, size: 20),
                     if (expanded) ...[
@@ -387,10 +417,8 @@ class _Sidebar extends StatelessWidget {
     switch (role) {
       case UserRole.patient:
         return AppColors.rolePatient;
-      case UserRole.healthcareWorker:
-        return AppColors.roleNakes;
-      case UserRole.doctor:
-        return AppColors.roleDoctor;
+      case UserRole.clinician:
+        return AppColors.roleClinician;
       case UserRole.admin:
         return AppColors.roleAdmin;
       default:
@@ -406,14 +434,14 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 12, top: 8, bottom: 4),
+      padding: const EdgeInsets.only(left: 12, top: 10, bottom: 4),
       child: Text(
         label,
         style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
           color: AppColors.textMuted,
-          letterSpacing: 1.2,
+          letterSpacing: 1.4,
         ),
       ),
     );
@@ -447,69 +475,77 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => context.go(route),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: EdgeInsets.symmetric(
-            horizontal: expanded ? 12 : 16,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: isActive ? AppColors.primary.withOpacity(0.15) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: isActive ? AppColors.primary : AppColors.textSecondary,
-              ),
-              if (expanded) ...[
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                      color: isActive ? AppColors.primary : AppColors.textPrimary,
-                    ),
-                  ),
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Tooltip(
+        message: expanded ? '' : label,
+        preferBelow: false,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => context.go(route),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: EdgeInsets.symmetric(
+              horizontal: expanded ? 12 : 14,
+              vertical: 9,
+            ),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? AppColors.primary.withOpacity(0.10)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: isActive
+                  ? Border.all(color: AppColors.primary.withOpacity(0.2))
+                  : Border.all(color: Colors.transparent),
+            ),
+            child: Row(
+              mainAxisAlignment: expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 19,
+                  color: isActive ? AppColors.primary : AppColors.textSecondary,
                 ),
-                if (badge > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.danger,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                if (expanded) ...[
+                  const SizedBox(width: 11),
+                  Expanded(
                     child: Text(
-                      badge.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                        color: isActive ? AppColors.primary : AppColors.textPrimary,
                       ),
                     ),
                   ),
-              ] else if (badge > 0)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    width: 8,
-                    height: 8,
+                  if (badge > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.danger,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        badge.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ] else if (badge > 0)
+                  // Dot badge saat collapsed
+                  Container(
+                    margin: const EdgeInsets.only(left: 2, top: 2),
+                    width: 7,
+                    height: 7,
                     decoration: const BoxDecoration(
                       color: AppColors.danger,
                       shape: BoxShape.circle,
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -545,23 +581,33 @@ class _TopBar extends StatelessWidget {
           ),
           const Spacer(),
           // Search bar placeholder
-          Container(
-            width: 220,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Row(
-              children: [
-                SizedBox(width: 12),
-                Icon(Icons.search, size: 16, color: AppColors.textMuted),
-                SizedBox(width: 8),
-                Text('Cari pasien...', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
-              ],
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => context.go(AppRoutes.patients),
+              child: Container(
+                width: 220,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.borderLight),
+                ),
+                child: const Row(
+                  children: [
+                    SizedBox(width: 12),
+                    Icon(Icons.search, size: 16, color: AppColors.textMuted),
+                    SizedBox(width: 8),
+                    Text(
+                      'Cari pasien...',
+                      style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           // Notification bell
           Stack(
             children: [
@@ -584,13 +630,13 @@ class _TopBar extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           // Avatar
           GestureDetector(
             onTap: () => context.go(AppRoutes.profile),
             child: CircleAvatar(
-              radius: 18,
-              backgroundColor: AppColors.primary.withOpacity(0.2),
+              radius: 17,
+              backgroundColor: AppColors.primaryContainer,
               child: Text(
                 user?.name.split(' ').first[0] ?? '?',
                 style: const TextStyle(
@@ -601,6 +647,7 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(width: 4),
         ],
       ),
     );
@@ -639,6 +686,7 @@ class _MobileTopBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: AppColors.surface,
       elevation: 0,
+      surfaceTintColor: Colors.transparent,
       leading: Builder(
         builder: (ctx) => IconButton(
           icon: const Icon(Icons.menu_rounded, color: AppColors.textPrimary),
@@ -672,7 +720,7 @@ class _MobileTopBar extends StatelessWidget implements PreferredSizeWidget {
           padding: const EdgeInsets.only(right: 12),
           child: CircleAvatar(
             radius: 16,
-            backgroundColor: AppColors.primary.withOpacity(0.2),
+            backgroundColor: AppColors.primaryContainer,
             child: Text(
               user?.name.split(' ').first[0] ?? '?',
               style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 12),

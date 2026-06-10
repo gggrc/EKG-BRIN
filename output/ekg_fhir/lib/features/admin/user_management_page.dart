@@ -159,8 +159,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
   Color _roleColor(UserRole role) {
     switch (role) {
       case UserRole.patient: return AppColors.rolePatient;
-      case UserRole.healthcareWorker: return AppColors.roleNakes;
-      case UserRole.doctor: return AppColors.roleDoctor;
+      case UserRole.clinician: return AppColors.roleClinician;
       case UserRole.admin: return AppColors.roleAdmin;
     }
   }

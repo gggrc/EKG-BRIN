@@ -1,5 +1,8 @@
 // lib/core/models/ecg_models.dart
 
+import 'user_model.dart';
+
+
 enum LeadConfiguration { sixLead, twelveLead }
 
 enum EcgSessionStatus { pending, processing, completed, error }
@@ -53,6 +56,40 @@ class EcgSession {
       case EcgSessionStatus.error:
         return 'Error';
     }
+  }
+
+  EcgSession copyWith({
+    String? sessionId,
+    String? patientId,
+    String? patientName,
+    String? deviceId,
+    String? deviceName,
+    DateTime? examinationTime,
+    int? durationSec,
+    LeadConfiguration? leadConfiguration,
+    EcgSessionStatus? status,
+    SourceType? sourceType,
+    EcgSignalData? signalData,
+    EcgAnalysis? analysis,
+    String? recordedBy,
+    String? recordedByName,
+  }) {
+    return EcgSession(
+      sessionId: sessionId ?? this.sessionId,
+      patientId: patientId ?? this.patientId,
+      patientName: patientName ?? this.patientName,
+      deviceId: deviceId ?? this.deviceId,
+      deviceName: deviceName ?? this.deviceName,
+      examinationTime: examinationTime ?? this.examinationTime,
+      durationSec: durationSec ?? this.durationSec,
+      leadConfiguration: leadConfiguration ?? this.leadConfiguration,
+      status: status ?? this.status,
+      sourceType: sourceType ?? this.sourceType,
+      signalData: signalData ?? this.signalData,
+      analysis: analysis ?? this.analysis,
+      recordedBy: recordedBy ?? this.recordedBy,
+      recordedByName: recordedByName ?? this.recordedByName,
+    );
   }
 }
 
@@ -127,6 +164,40 @@ class EcgAnalysis {
 
   bool get isQtcNormal =>
       qtcIntervalMs != null && qtcIntervalMs! >= 350 && qtcIntervalMs! <= 440;
+
+  EcgAnalysis copyWith({
+    String? analysisId,
+    String? sessionId,
+    int? heartRateBpm,
+    String? rhythmType,
+    double? prIntervalMs,
+    double? qrsDurationMs,
+    double? qtIntervalMs,
+    double? qtcIntervalMs,
+    double? electricalAxisDeg,
+    String? aiInterpretation,
+    String? doctorDiagnosis,
+    bool? isApproved,
+    String? approvedBy,
+    DateTime? approvedAt,
+  }) {
+    return EcgAnalysis(
+      analysisId: analysisId ?? this.analysisId,
+      sessionId: sessionId ?? this.sessionId,
+      heartRateBpm: heartRateBpm ?? this.heartRateBpm,
+      rhythmType: rhythmType ?? this.rhythmType,
+      prIntervalMs: prIntervalMs ?? this.prIntervalMs,
+      qrsDurationMs: qrsDurationMs ?? this.qrsDurationMs,
+      qtIntervalMs: qtIntervalMs ?? this.qtIntervalMs,
+      qtcIntervalMs: qtcIntervalMs ?? this.qtcIntervalMs,
+      electricalAxisDeg: electricalAxisDeg ?? this.electricalAxisDeg,
+      aiInterpretation: aiInterpretation ?? this.aiInterpretation,
+      doctorDiagnosis: doctorDiagnosis ?? this.doctorDiagnosis,
+      isApproved: isApproved ?? this.isApproved,
+      approvedBy: approvedBy ?? this.approvedBy,
+      approvedAt: approvedAt ?? this.approvedAt,
+    );
+  }
 }
 
 class FhirExportStatus {
@@ -156,6 +227,12 @@ class NotificationModel {
   final DateTime createdAt;
   final String? relatedSessionId;
 
+  // Security: role-based filtering
+  // targetRoles: null = semua role, jika diisi = hanya role tersebut yang melihat
+  final List<UserRole>? targetRoles;
+  // targetPatientId: jika diisi, hanya pasien dengan patientId ini yang melihat
+  final String? targetPatientId;
+
   const NotificationModel({
     required this.notificationId,
     required this.title,
@@ -164,5 +241,72 @@ class NotificationModel {
     required this.isRead,
     required this.createdAt,
     this.relatedSessionId,
+    this.targetRoles,
+    this.targetPatientId,
+  });
+
+  /// Cek apakah notifikasi ini relevan untuk user tertentu
+  bool isVisibleTo(UserModel user) {
+    // Pasien hanya boleh lihat notif yang ditujukan ke patientId mereka
+    if (user.role == UserRole.patient) {
+      if (targetPatientId != null) {
+        return targetPatientId == user.patientId;
+      }
+      // Jika tidak ada targetPatientId, pasien tidak boleh melihat notif klinis
+      return false;
+    }
+    // Untuk non-pasien: cek targetRoles
+    // Jika targetPatientId terisi, ini KHUSUS untuk pasien tersebut, jadi non-pasien tidak boleh melihatnya
+    if (targetPatientId != null) {
+      return false;
+    }
+    
+    if (targetRoles != null) {
+      return targetRoles!.contains(user.role);
+    }
+    // Jika targetRoles null dan targetPatientId null = visible untuk semua (non-patient)
+    return true;
+  }
+
+  NotificationModel copyWith({
+    String? notificationId,
+    String? title,
+    String? body,
+    String? type,
+    bool? isRead,
+    DateTime? createdAt,
+    String? relatedSessionId,
+    List<UserRole>? targetRoles,
+    String? targetPatientId,
+  }) {
+    return NotificationModel(
+      notificationId: notificationId ?? this.notificationId,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      type: type ?? this.type,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt ?? this.createdAt,
+      relatedSessionId: relatedSessionId ?? this.relatedSessionId,
+      targetRoles: targetRoles ?? this.targetRoles,
+      targetPatientId: targetPatientId ?? this.targetPatientId,
+    );
+  }
+}
+
+class ActivityLogModel {
+  final String id;
+  final String userName;
+  final String action;
+  final String target;
+  final DateTime time;
+  final String type; // 'approve', 'upload', 'sync', 'export', 'user', 'system'
+
+  const ActivityLogModel({
+    required this.id,
+    required this.userName,
+    required this.action,
+    required this.target,
+    required this.time,
+    required this.type,
   });
 }

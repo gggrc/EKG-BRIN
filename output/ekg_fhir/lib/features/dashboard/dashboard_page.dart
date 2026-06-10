@@ -10,9 +10,13 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/data_provider.dart';
 import '../../core/models/user_model.dart';
+import '../../core/models/ecg_models.dart';
 import '../../core/mock/mock_data.dart';
 import '../../core/router/app_router.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -23,10 +27,8 @@ class DashboardPage extends StatelessWidget {
     switch (role) {
       case UserRole.patient:
         return const _PatientDashboard();
-      case UserRole.healthcareWorker:
-        return const _NakesDashboard();
-      case UserRole.doctor:
-        return const _DoctorDashboard();
+      case UserRole.clinician:
+        return const _ClinicianDashboard();
       case UserRole.admin:
         return const _AdminDashboard();
       default:
@@ -113,23 +115,24 @@ class _PatientDashboard extends StatelessWidget {
 }
 
 // ============================================================
-// NAKES DASHBOARD
+// CLINICIAN DASHBOARD (merged Nakes + Dokter)
 // ============================================================
-class _NakesDashboard extends StatelessWidget {
-  const _NakesDashboard();
+class _ClinicianDashboard extends StatelessWidget {
+  const _ClinicianDashboard();
 
   @override
   Widget build(BuildContext context) {
     final user = context.read<AuthProvider>().currentUser;
-    final analytics = MockData.analyticsData;
-    final sessions = MockData.ecgSessions;
+    final data = context.watch<DataProvider>();
+    final analytics = data.analytics;
+    final sessions = data.ecgSessions;
+    final pending = sessions.where((s) => s.status == EcgSessionStatus.pending).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _GreetingBanner(user: user, subtitle: 'Kelola pasien dan rekam EKG hari ini'),
+          _GreetingBanner(user: user, subtitle: 'Kelola pasien, rekam EKG, dan tinjau laporan klinis'),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -137,12 +140,12 @@ class _NakesDashboard extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(child: _StatCard(label: 'Sesi Bulan Ini', value: '${analytics['sessionsThisMonth']}', icon: Icons.monitor_heart_rounded, color: AppColors.secondary)),
               const SizedBox(width: 16),
-              Expanded(child: _StatCard(label: 'Menunggu Diagnosis', value: '${analytics['pendingDiagnosis']}', icon: Icons.pending_rounded, color: AppColors.warning)),
+              Expanded(child: _StatCard(label: 'Menunggu Diagnosis', value: '${pending.length}', icon: Icons.pending_actions_rounded, color: AppColors.warning, isAlert: pending.isNotEmpty)),
               const SizedBox(width: 16),
               Expanded(child: _StatCard(label: 'HR Rata-rata', value: '${analytics['avgHeartRate']} bpm', icon: Icons.favorite_rounded, color: AppColors.success)),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           // Quick actions
           Row(
             children: [
@@ -168,88 +171,30 @@ class _NakesDashboard extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(
                 child: _QuickActionCard(
-                  icon: Icons.people_rounded,
-                  title: 'Daftar Pasien',
-                  subtitle: 'Kelola semua pasien',
-                  color: AppColors.roleDoctor,
-                  onTap: () => context.go(AppRoutes.patients),
+                  icon: Icons.medical_information_rounded,
+                  title: 'Diagnosis',
+                  subtitle: 'Tinjau & setujui laporan',
+                  color: AppColors.roleClinician,
+                  onTap: () {
+                    if (pending.isNotEmpty) {
+                      context.go('/diagnosis/${pending.first.sessionId}');
+                    } else {
+                      context.go(AppRoutes.history);
+                    }
+                  },
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  children: [
-                    _SectionHeader(title: 'Sesi EKG Terbaru', onViewAll: () => context.go(AppRoutes.history)),
-                    const SizedBox(height: 12),
-                    ...sessions.take(5).map((s) => _EcgSessionCard(session: s)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Column(
-                  children: [
-                    _SectionHeader(title: 'Distribusi Lead'),
-                    const SizedBox(height: 12),
-                    _LeadDistributionChart(data: Map<String, int>.from(analytics['leadConfigDistribution'])),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// DOCTOR DASHBOARD
-// ============================================================
-class _DoctorDashboard extends StatelessWidget {
-  const _DoctorDashboard();
-
-  @override
-  Widget build(BuildContext context) {
-    final user = context.read<AuthProvider>().currentUser;
-    final analytics = MockData.analyticsData;
-    final sessions = MockData.ecgSessions;
-    final pending = sessions.where((s) => s.analysis?.isApproved == false).toList();
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _GreetingBanner(user: user, subtitle: 'Tinjau dan setujui laporan EKG hari ini'),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(child: _StatCard(label: 'Total Sesi', value: '${analytics['totalSessions']}', icon: Icons.monitor_heart_rounded, color: AppColors.primary)),
-              const SizedBox(width: 16),
-              Expanded(child: _StatCard(label: 'Menunggu Approval', value: '${pending.length}', icon: Icons.pending_actions_rounded, color: AppColors.warning, isAlert: pending.isNotEmpty)),
-              const SizedBox(width: 16),
-              Expanded(child: _StatCard(label: 'Disetujui', value: '${analytics['approvedDiagnosis']}', icon: Icons.check_circle_rounded, color: AppColors.success)),
-              const SizedBox(width: 16),
-              Expanded(child: _StatCard(label: 'FHIR Synced', value: '${analytics['fhirSyncedCount']}', icon: Icons.sync_rounded, color: AppColors.secondary)),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Pending approvals
+          const SizedBox(height: 20),
+          // Pending approvals alert
           if (pending.isNotEmpty) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.warningContainer,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                border: Border.all(color: AppColors.warning),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,8 +204,8 @@ class _DoctorDashboard extends StatelessWidget {
                       const Icon(Icons.pending_actions_rounded, color: AppColors.warning, size: 18),
                       const SizedBox(width: 8),
                       Text(
-                        '${pending.length} Sesi Menunggu Diagnosis Anda',
-                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.warningLight),
+                        '${pending.length} Sesi Menunggu Ditinjau',
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.warning),
                       ),
                       const Spacer(),
                       TextButton(
@@ -274,9 +219,8 @@ class _DoctorDashboard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
           ],
-
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -317,7 +261,41 @@ class _AdminDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.read<AuthProvider>().currentUser;
-    final analytics = MockData.analyticsData;
+    final data = context.watch<DataProvider>();
+    final analytics = data.analytics;
+    final logs = data.activityLogs;
+
+    void exportDataset() {
+      final csvData = [
+        ['ID', 'User', 'Action', 'Target', 'Time', 'Type'],
+        ...logs.map((l) => [
+          l.id,
+          '"${l.userName}"',
+          '"${l.action}"',
+          '"${l.target}"',
+          l.time.toString(),
+          l.type
+        ])
+      ].map((row) => row.join(',')).join('\n');
+
+      final blob = html.Blob([csvData], 'text/csv');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute("download", "audit_log_export.csv")
+        ..click();
+      html.Url.revokeObjectUrl(url);
+
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dataset Audit Log berhasil di-export')));
+      
+      data.addActivityLog(ActivityLogModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        userName: user?.name ?? 'Admin',
+        action: 'Export dataset',
+        target: '${logs.length} rekam aktivitas',
+        time: DateTime.now(),
+        type: 'export',
+      ));
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -345,7 +323,7 @@ class _AdminDashboard extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(child: _QuickActionCard(icon: Icons.bar_chart_rounded, title: 'Analytics', subtitle: 'Laporan & statistik', color: AppColors.secondary, onTap: () => context.go(AppRoutes.analytics))),
               const SizedBox(width: 16),
-              Expanded(child: _QuickActionCard(icon: Icons.download_rounded, title: 'Export Dataset', subtitle: 'Download data riset', color: AppColors.roleAdmin, onTap: () {})),
+              Expanded(child: _QuickActionCard(icon: Icons.download_rounded, title: 'Export Dataset', subtitle: 'Download data riset', color: AppColors.roleAdmin, onTap: exportDataset)),
               const SizedBox(width: 16),
               Expanded(child: _QuickActionCard(icon: Icons.receipt_long_rounded, title: 'Audit Log', subtitle: 'Riwayat aktivitas sistem', color: AppColors.success, onTap: () => context.go(AppRoutes.adminPanel))),
             ],
@@ -492,7 +470,7 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isAlert ? AppColors.warning.withOpacity(0.5) : AppColors.borderLight),
+        border: Border.all(color: isAlert ? AppColors.warning : AppColors.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

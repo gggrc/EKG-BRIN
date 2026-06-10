@@ -1,9 +1,11 @@
 // lib/core/models/user_model.dart
+// Justifikasi role unification: dalam praktik klinis Indonesia, perawat (Amd.Kep)
+// dan dokter sama-sama berhak melakukan rekam EKG, input data pasien, dan
+// memberikan catatan klinis. Pemisahan role tidak diperlukan untuk prototype ini.
 
 enum UserRole {
   patient,
-  healthcareWorker,
-  doctor,
+  clinician, // Mencakup: Perawat, Dokter, Bidan, Dokter Spesialis
   admin,
 }
 
@@ -12,10 +14,8 @@ extension UserRoleExtension on UserRole {
     switch (this) {
       case UserRole.patient:
         return 'Pasien';
-      case UserRole.healthcareWorker:
-        return 'Tenaga Kesehatan';
-      case UserRole.doctor:
-        return 'Dokter / Spesialis';
+      case UserRole.clinician:
+        return 'Tenaga Medis / Klinisi';
       case UserRole.admin:
         return 'Admin / Peneliti';
     }
@@ -25,10 +25,8 @@ extension UserRoleExtension on UserRole {
     switch (this) {
       case UserRole.patient:
         return 'Pasien';
-      case UserRole.healthcareWorker:
-        return 'Nakes';
-      case UserRole.doctor:
-        return 'Dokter';
+      case UserRole.clinician:
+        return 'Klinisi';
       case UserRole.admin:
         return 'Admin';
     }
@@ -38,9 +36,7 @@ extension UserRoleExtension on UserRole {
     switch (this) {
       case UserRole.patient:
         return '🧑‍💼';
-      case UserRole.healthcareWorker:
-        return '👩‍⚕️';
-      case UserRole.doctor:
+      case UserRole.clinician:
         return '🩺';
       case UserRole.admin:
         return '🔧';
@@ -54,7 +50,7 @@ class UserModel {
   final String name;
   final UserRole role;
   final String? patientId;
-  final String? specialty; // for doctors
+  final String? specialty; // for clinicians (e.g. "Kardiologi", "Penyakit Dalam")
   final String? institution;
   final String? phoneNumber;
   final String? avatarUrl;
@@ -76,26 +72,23 @@ class UserModel {
   });
 
   bool get canViewAllPatients =>
-      role == UserRole.healthcareWorker ||
-      role == UserRole.doctor ||
-      role == UserRole.admin;
+      role == UserRole.clinician || role == UserRole.admin;
 
-  bool get canInputPatient =>
-      role == UserRole.healthcareWorker || role == UserRole.doctor;
+  bool get canInputPatient => role == UserRole.clinician;
 
-  bool get canAcquireSignal =>
-      role == UserRole.healthcareWorker || role == UserRole.doctor;
+  bool get canAcquireSignal => role == UserRole.clinician;
 
-  bool get canWriteDiagnosis => role == UserRole.doctor;
+  bool get canWriteDiagnosis => role == UserRole.clinician;
 
-  bool get canApproveDiagnosis => role == UserRole.doctor;
+  bool get canApproveDiagnosis => role == UserRole.clinician;
 
   bool get canExportFHIR =>
-      role == UserRole.doctor || role == UserRole.admin;
+      role == UserRole.clinician || role == UserRole.admin;
 
   bool get canAccessAdmin => role == UserRole.admin;
 
-  bool get canViewAIInterpretation => role == UserRole.doctor;
+  bool get canViewAIInterpretation =>
+      role == UserRole.clinician || role == UserRole.admin;
 
   bool get canExportDataset => role == UserRole.admin;
 

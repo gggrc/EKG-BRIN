@@ -1,8 +1,12 @@
 // lib/features/patient/patient_form_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/mock/mock_data.dart';
+import '../../core/models/patient_model.dart';
+import '../../core/models/ecg_models.dart';
+import '../../core/providers/data_provider.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/router/app_router.dart';
 
 class PatientFormPage extends StatefulWidget {
@@ -36,7 +40,8 @@ class _PatientFormPageState extends State<PatientFormPage> {
   }
 
   void _loadPatient() {
-    final p = MockData.patients.firstWhere((p) => p.patientId == widget.patientId, orElse: () => MockData.patients.first);
+    final patients = context.read<DataProvider>().patients;
+    final p = patients.firstWhere((p) => p.patientId == widget.patientId, orElse: () => patients.first);
     _nameCtrl.text = p.fullName;
     _rmCtrl.text = p.medicalRecordNumber;
     _nikCtrl.text = p.nik ?? '';
@@ -53,8 +58,45 @@ class _PatientFormPageState extends State<PatientFormPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     await Future.delayed(const Duration(milliseconds: 800));
-    setState(() => _isLoading = false);
+    
+    final newPatient = PatientModel(
+      patientId: isEditing ? widget.patientId! : 'p-${DateTime.now().millisecondsSinceEpoch}',
+      fullName: _nameCtrl.text,
+      medicalRecordNumber: _rmCtrl.text,
+      gender: _gender,
+      birthDate: _birthDate ?? DateTime.now(),
+      heightCm: double.tryParse(_heightCtrl.text),
+      weightKg: double.tryParse(_weightCtrl.text),
+      bloodType: _bloodType,
+      address: _addressCtrl.text,
+      phoneNumber: _phoneCtrl.text,
+      nik: _nikCtrl.text,
+    );
+
     if (mounted) {
+      final dataProvider = context.read<DataProvider>();
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.currentUser;
+
+      if (isEditing) {
+        dataProvider.updatePatient(newPatient);
+      } else {
+        dataProvider.addPatient(newPatient);
+      }
+
+      if (user != null) {
+        dataProvider.addActivityLog(ActivityLogModel(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          userName: user.name,
+          action: isEditing ? 'Mengubah data pasien' : 'Mendaftarkan pasien baru',
+          target: newPatient.fullName,
+          time: DateTime.now(),
+          type: 'user',
+        ));
+      }
+
+      setState(() => _isLoading = false);
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(isEditing ? 'Data pasien berhasil diperbarui' : 'Pasien baru berhasil ditambahkan')),
       );

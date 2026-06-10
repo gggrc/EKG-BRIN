@@ -55,4 +55,42 @@ class PatientModel {
   }
 
   String get genderDisplay => gender == 'M' ? 'Laki-laki' : 'Perempuan';
+
+  PatientModel copyWith({
+    String? patientId,
+    String? fullName,
+    String? medicalRecordNumber,
+    String? gender,
+    DateTime? birthDate,
+    double? heightCm,
+    double? weightKg,
+    String? bloodType,
+    String? address,
+    String? phoneNumber,
+    String? emergencyContact,
+    List<String>? allergies,
+    List<String>? currentMedications,
+    String? nik,
+    DateTime? lastEcgDate,
+    int? totalEcgSessions,
+  }) {
+    return PatientModel(
+      patientId: patientId ?? this.patientId,
+      fullName: fullName ?? this.fullName,
+      medicalRecordNumber: medicalRecordNumber ?? this.medicalRecordNumber,
+      gender: gender ?? this.gender,
+      birthDate: birthDate ?? this.birthDate,
+      heightCm: heightCm ?? this.heightCm,
+      weightKg: weightKg ?? this.weightKg,
+      bloodType: bloodType ?? this.bloodType,
+      address: address ?? this.address,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      emergencyContact: emergencyContact ?? this.emergencyContact,
+      allergies: allergies ?? this.allergies,
+      currentMedications: currentMedications ?? this.currentMedications,
+      nik: nik ?? this.nik,
+      lastEcgDate: lastEcgDate ?? this.lastEcgDate,
+      totalEcgSessions: totalEcgSessions ?? this.totalEcgSessions,
+    );
+  }
 }

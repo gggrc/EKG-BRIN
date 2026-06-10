@@ -64,8 +64,19 @@ class AuthProvider extends ChangeNotifier {
 
   void logout() {
     _currentUser = null;
-    _errorMessage = null;
     notifyListeners();
+  }
+
+  void updateProfile({required String name, String? phone, String? institution, String? specialty}) {
+    if (_currentUser != null) {
+      _currentUser = _currentUser!.copyWith(
+        name: name,
+        phoneNumber: phone,
+        institution: institution,
+        specialty: specialty,
+      );
+      notifyListeners();
+    }
   }
 
   void clearError() {

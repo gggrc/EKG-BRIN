@@ -271,8 +271,7 @@ class _DemoRoleButton extends StatelessWidget {
   Color get color {
     switch (role) {
       case UserRole.patient: return AppColors.rolePatient;
-      case UserRole.healthcareWorker: return AppColors.roleNakes;
-      case UserRole.doctor: return AppColors.roleDoctor;
+      case UserRole.clinician: return AppColors.roleClinician;
       case UserRole.admin: return AppColors.roleAdmin;
     }
   }

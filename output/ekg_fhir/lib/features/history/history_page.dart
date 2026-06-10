@@ -5,8 +5,9 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/models/user_model.dart';
+import '../../core/models/user_model.dart';
 import '../../core/models/ecg_models.dart';
-import '../../core/mock/mock_data.dart';
+import '../../core/providers/data_provider.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -20,8 +21,8 @@ class _HistoryPageState extends State<HistoryPage> {
   String _statusFilter = 'Semua';
   String _leadFilter = 'Semua';
 
-  List<EcgSession> _getFilteredSessions(UserRole? role) {
-    final all = MockData.ecgSessions;
+  List<EcgSession> _getFilteredSessions(UserRole? role, BuildContext context) {
+    final all = context.watch<DataProvider>().ecgSessions;
     return all.where((s) {
       if (role == UserRole.patient) {
         final user = context.read<AuthProvider>().currentUser;
@@ -38,7 +39,7 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<AuthProvider>().userRole;
-    final sessions = _getFilteredSessions(role);
+    final sessions = _getFilteredSessions(role, context);
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -191,7 +192,7 @@ class _SessionCard extends StatelessWidget {
                       Text('Disetujui Dokter', style: TextStyle(fontSize: 11, color: AppColors.success)),
                     ],
                   )
-                else if (role == UserRole.doctor)
+                else if (role == UserRole.clinician)
                   ElevatedButton(
                     onPressed: () => context.go('/diagnosis/${session.sessionId}'),
                     style: ElevatedButton.styleFrom(
@@ -208,18 +209,20 @@ class _SessionCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              ElevatedButton.icon(
-                onPressed: () => context.go('/ecg/${session.sessionId}'),
-                icon: const Icon(Icons.monitor_heart_rounded, size: 14),
-                label: const Text('Buka EKG Viewer', style: TextStyle(fontSize: 12)),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              if (role != UserRole.admin) ...[
+                ElevatedButton.icon(
+                  onPressed: () => context.go('/ecg/${session.sessionId}'),
+                  icon: const Icon(Icons.monitor_heart_rounded, size: 14),
+                  label: const Text('Buka EKG Viewer', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              if (role == UserRole.doctor || role == UserRole.admin)
+                const SizedBox(width: 8),
+              ],
+              if (role == UserRole.clinician || role == UserRole.admin)
                 OutlinedButton.icon(
                   onPressed: () => context.go('/report/${session.sessionId}'),
                   icon: const Icon(Icons.description_rounded, size: 14),

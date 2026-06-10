@@ -24,7 +24,8 @@ class MockData {
       userId: 'u-002',
       email: 'siti.nakes@rsud.id',
       name: 'Siti Rahayu, Amd.Kep',
-      role: UserRole.healthcareWorker,
+      role: UserRole.clinician,
+      specialty: 'Perawat Kardiologi',
       institution: 'RSUD Dr. Soetomo Surabaya',
       phoneNumber: '08234567890',
       createdAt: DateTime(2024, 2, 1),
@@ -33,7 +34,7 @@ class MockData {
       userId: 'u-003',
       email: 'dr.andi@rsud.id',
       name: 'dr. Andi Prasetyo, Sp.JP',
-      role: UserRole.doctor,
+      role: UserRole.clinician,
       specialty: 'Kardiologi',
       institution: 'RSUD Dr. Soetomo Surabaya',
       phoneNumber: '08345678901',
@@ -50,14 +51,13 @@ class MockData {
     ),
   ];
 
-  // Demo login presets
+  // Demo login presets — 3 role: patient, clinician, admin
   static final Map<UserRole, Map<String, String>> demoCredentials = {
     UserRole.patient: {'email': 'budi.pasien@email.com', 'password': 'demo123'},
-    UserRole.healthcareWorker: {
+    UserRole.clinician: {
       'email': 'siti.nakes@rsud.id',
       'password': 'demo123'
     },
-    UserRole.doctor: {'email': 'dr.andi@rsud.id', 'password': 'demo123'},
     UserRole.admin: {'email': 'admin.brin@brin.go.id', 'password': 'demo123'},
   };
 
@@ -399,8 +399,9 @@ class MockData {
     ];
   }
 
-  // === MOCK NOTIFICATIONS ===
+  // === MOCK NOTIFICATIONS (role-aware) ===
   static List<NotificationModel> get notifications => [
+    // Hanya untuk pasien Budi (p-001)
     NotificationModel(
       notificationId: 'n-001',
       title: 'Hasil EKG Tersedia',
@@ -409,32 +410,49 @@ class MockData {
       isRead: false,
       createdAt: DateTime(2026, 6, 8, 10, 30),
       relatedSessionId: 's-001',
+      targetPatientId: 'p-001', // hanya Budi yang lihat
     ),
+    // Hanya untuk clinician
     NotificationModel(
       notificationId: 'n-002',
-      title: 'Diagnosis Memerlukan Perhatian',
-      body: 'Pasien Ahmad Fauzi (RM-2024-003) memiliki hasil EKG yang perlu ditinjau. QTc memanjang.',
+      title: 'Perhatian Klinis: QTc Memanjang',
+      body: 'Pasien Ahmad Fauzi (RM-2024-003) memiliki hasil EKG yang perlu ditinjau. QTc memanjang (448ms). Atrial Fibrilasi terdeteksi.',
       type: 'alert',
       isRead: false,
       createdAt: DateTime(2026, 6, 7, 15, 0),
       relatedSessionId: 's-002',
+      targetRoles: [UserRole.clinician], // hanya klinisi
     ),
+    // Untuk clinician dan admin
     NotificationModel(
       notificationId: 'n-003',
       title: 'Diagnosis Disetujui',
-      body: 'dr. Andi Prasetyo telah menyetujui diagnosis untuk sesi EKG s-003.',
+      body: 'Diagnosis sesi EKG s-003 (Hendra Wijaya) telah disetujui. Sinus bradikardia dengan LBBB.',
       type: 'diagnosis',
       isRead: true,
       createdAt: DateTime(2026, 6, 6, 9, 0),
       relatedSessionId: 's-003',
+      targetRoles: [UserRole.clinician, UserRole.admin],
     ),
+    // Hanya untuk admin
     NotificationModel(
       notificationId: 'n-004',
       title: 'Sinkronisasi SATUSEHAT',
-      body: '3 rekam EKG berhasil dikirim ke SATUSEHAT hari ini.',
+      body: '3 rekam EKG berhasil dikirim ke SATUSEHAT hari ini. Total dataset: 1.107 rekam.',
       type: 'system',
       isRead: true,
       createdAt: DateTime(2026, 6, 5, 18, 0),
+      targetRoles: [UserRole.admin], // hanya admin/peneliti
+    ),
+    // Untuk semua clinician — peringatan perangkat
+    NotificationModel(
+      notificationId: 'n-005',
+      title: 'Kalibrasi Perangkat Diperlukan',
+      body: 'Perangkat Nihon Kohden ECG-2350 (d-001) memerlukan kalibrasi ulang. Jadwalkan sebelum 15 Juni 2026.',
+      type: 'system',
+      isRead: false,
+      createdAt: DateTime(2026, 6, 9, 8, 0),
+      targetRoles: [UserRole.clinician, UserRole.admin],
     ),
   ];
 
@@ -488,7 +506,8 @@ class MockData {
         userId: 'u-005',
         email: 'perawat.budi@puskesmas.id',
         name: 'Budi Hermawan, Amd.Kep',
-        role: UserRole.healthcareWorker,
+        role: UserRole.clinician,
+        specialty: 'Perawat Umum',
         institution: 'Puskesmas Gubeng',
         createdAt: DateTime(2025, 3, 1),
       ),
@@ -500,7 +519,7 @@ class MockData {
         userId: 'u-006',
         email: 'dr.maya@rs-islam.id',
         name: 'dr. Maya Kusuma, Sp.PD',
-        role: UserRole.doctor,
+        role: UserRole.clinician,
         specialty: 'Penyakit Dalam',
         institution: 'RS Islam Surabaya',
         createdAt: DateTime(2025, 5, 15),
