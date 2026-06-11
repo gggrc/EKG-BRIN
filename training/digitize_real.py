@@ -191,6 +191,100 @@ def detect_lanes_calmask(mask, y0, y1, x0, px_per_mm):
     return merged if len(merged) >= 6 else None
 
 
+_STRIP_NET = {}
+
+
+# Strip-model (Rahimi) DINONAKTIFKAN secara default: ia memang menekan collision
+# V3, TAPI masking-nya berlubang -> gap-fill apa pun menimbulkan artefak "kotak"/
+# plateau di banyak lead (aVF/III/aVR box 46-49 vs offset-momentum 6-9). Karena
+# collision V3 adalah frontier yg BELUM terpecahkan siapa pun (pemenang PhysioNet
+# 2024 pun mengakui), pilihan PRODUKSI = offset-momentum yang BERSIH + koreksi
+# baseline. Set USE_STRIP=True utk mengaktifkan kembali (mis. setelah punya data
+# device asli berlabel utk melatih strip-model bebas-lubang).
+USE_STRIP = False
+
+# Derivasi limb-lead (III/aVR/aVL/aVF) dari I & II via relasi Einthoven/
+# Goldberger -> menghilangkan BLEED overlap antar limb-lead yg sangat rapat
+# (mis. III/aVR ~4mm di Export, traces overlap -> spike tajam tetangga nyebrang).
+# Ini CARA STANDAR: lead augmented memang kombinasi linear I & II (device pun
+# menghitungnya begitu, bukan diukur independen). I & II = lead atas, paling
+# lega & bersih -> derivasi lebih akurat daripada trace III/aVR yg ter-overlap.
+DERIVE_LIMB = True
+
+
+def _load_strip_net(device):
+    """Model STRIP per-lead (Rahimi et al.): segmentasi target-BERSIH yang sudah
+    belajar mengabaikan trace tetangga yang menumpuk. Dipakai bila ada."""
+    if not USE_STRIP:
+        return None, 320
+    import torch
+    from unet import UNet
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        'checkpoints', 'strip_best.pt')
+    if not os.path.exists(path):
+        return None, 320
+    if 'net' not in _STRIP_NET:
+        c = torch.load(path, map_location=device)
+        net = UNet(in_ch=3, out_ch=1, base=c.get('base', 32)).to(device).eval()
+        net.load_state_dict(c['model'])
+        _STRIP_NET['net'] = net
+    return _STRIP_NET['net'], 320
+
+
+def _strip_segment(strip_net, rgb, base, x_lo, x_hi, H, device):
+    """Crop strip 1 lead di sekitar baseline -> segmentasi BERSIH (cuma trace
+    lead ini). Kembalikan (mask_strip 0/255, r0)."""
+    import torch
+    Himg = rgb.shape[0]
+    r1 = min(Himg, max(H, base + H // 2))
+    r0 = max(0, r1 - H)
+    strip = rgb[r0:r1, x_lo:x_hi]
+    w = strip.shape[1]
+    padw = (16 - w % 16) % 16
+    padh = H - strip.shape[0]
+    si = np.pad(strip, ((0, padh), (0, padw), (0, 0)), constant_values=255)
+    x = torch.from_numpy(np.ascontiguousarray(si.transpose(2, 0, 1)
+                                              ).astype(np.float32) / 255.0)[None].to(device)
+    with torch.no_grad():
+        with torch.cuda.amp.autocast(enabled=(device == 'cuda')):
+            mk = (torch.sigmoid(strip_net(x))[0, 0].float().cpu().numpy() > 0.5
+                  ).astype(np.uint8) * 255
+    mk = mk[:strip.shape[0], :w]
+    # Buang BLOB LIAR: simpan hanya komponen tersambung BESAR (trace utama).
+    # Blob kecil terpisah (di bawah baseline) -> momentum ikut turun = artefak
+    # "kotak". Dihapus -> kolomnya jadi lubang -> diisi gap-fill ke baseline.
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(mk, connectivity=8)
+    if n > 2:
+        areas = stats[1:, cv2.CC_STAT_AREA]
+        amax = areas.max()
+        keep = np.zeros_like(mk)
+        for ci in range(1, n):
+            if stats[ci, cv2.CC_STAT_AREA] >= max(40, 0.15 * amax):
+                keep[lab == ci] = 255
+        mk = keep
+    return mk, r0
+
+
+def _own_mask(mask, offmap, lanes, lead_i, ylo, yhi, x_lo, x_hi):
+    """Instance-segmentation: di band lead ini, BUANG piksel yang offset-nya
+    menunjuk ke baseline lead LAIN (penyusup trace bersilang). Sisakan hanya
+    piksel MILIK lead ini -> momentum di mask bersih = QRS sendiri utuh, bleed
+    tetangga hilang. Pakai peta offset (baseline prediksi = y + offset)."""
+    lanes = np.asarray(lanes, float)
+    out = mask.copy()
+    H, W = mask.shape
+    ylo = max(0, ylo); yhi = min(H, yhi)
+    for x in range(x_lo, min(W, x_hi)):
+        ys = np.where(mask[ylo:yhi, x] > 0)[0]
+        if ys.size == 0:
+            continue
+        ys = ys + ylo
+        pred = ys + offmap[ys, x]                       # baseline prediksi
+        owner = np.argmin(np.abs(pred[:, None] - lanes[None, :]), axis=1)
+        out[ys[owner != lead_i], x] = 0                 # buang penyusup
+    return out
+
+
 def _density_peaks(mask, y0, y1, x_trace=0):
     """Puncak densitas mask = baseline AKTUAL tiap trace.
     Proyeksi HANYA dari region TRACE (x >= x_trace, di kanan pulsa kalibrasi)
@@ -310,10 +404,81 @@ def decode_lane(mask, base, half_up, half_down, x_lo, x_hi, px_mv, max_jump):
     return (base - ys) / px_mv          # mV
 
 
+def extract_vector_signals(pdf_path, dpi=254, fs=250):
+    """Bila PDF menyimpan trace sebagai VEKTOR (polyline) -> baca sinyal EKSAK
+    langsung dari koordinat (x,y). TIDAK ada digitalisasi -> tak ada overlap/
+    collision/box/inkonsistensi. Tervalidasi: RV5/SV1 cocok nilai cetak device
+    (~0.05 mV). Kembalikan (leads, meta) bila 12 path trace; else None.
+    """
+    import fitz
+    pg = fitz.open(pdf_path)[0]
+    paths = []
+    for dr in pg.get_drawings():
+        pts = []
+        for it in dr['items']:
+            if it[0] == 'l':                       # segmen garis polyline
+                if not pts:
+                    pts.append((it[1].x, it[1].y))
+                pts.append((it[2].x, it[2].y))
+        if len(pts) > 100:                          # path panjang = trace lead
+            paths.append(pts)
+    if len(paths) != 12:                            # bukan 12-lead vektor
+        return None
+    paths.sort(key=lambda P: np.median([y for _, y in P]))   # atas->bawah
+
+    scale = dpi / 72.0                              # PDF point -> render px
+    px_per_mm = dpi / 25.4
+    px_per_mv = 10.0 * px_per_mm
+    pmv_pt = 10.0 * (72.0 / 25.4)                   # px/mV dalam point PDF
+    allx = [x for P in paths for x, _ in P]
+    x0g, x1g = min(allx), max(allx)
+    n = int(round((x1g - x0g) * scale))             # 254dpi: 1 sampel/px = 250Hz
+    leads = {}; baselines = []
+    for i, L in enumerate(LEAD_ORDER):
+        P = paths[i]
+        xs = np.array([x for x, _ in P]); ys = np.array([y for _, y in P])
+        o = np.argsort(xs); xs, ys = xs[o], ys[o]
+        base = float(np.median(ys)); baselines.append(int(round(base * scale)))
+        xg = np.linspace(x0g, x1g, n); yg = np.interp(xg, xs, ys)
+        mv = (base - yg) / pmv_pt
+        leads[L] = [round(float(v), 4) for v in (mv - np.median(mv))]
+    rx0 = int(round(x0g * scale)); rx1 = int(round(x1g * scale))
+    y0 = max(0, min(baselines) - int(2 * px_per_mm))
+    y1 = max(baselines) + int(2 * px_per_mm)
+    meta = {
+        'source_pdf': pdf_path, 'dpi': dpi,
+        'px_per_mm': px_per_mm, 'px_per_sec': float(fs),
+        'px_per_mV': px_per_mv, 'duration_sec': round(n / float(fs), 3),
+        'n_lanes': 12, 'lane_baselines': baselines, 'lane_method': 'pdf-vector',
+        'decode_route': {L: 'vector' for L in LEAD_ORDER}, 'missing_leads': [],
+        # x0 diset agar x_lo (=x0+6.5mm) di skrip visual = awal trace
+        'ecg_region': [int(y0), int(y1), int(rx0 - 6.5 * px_per_mm), int(rx1)],
+    }
+    return leads, meta
+
+
 def digitize(pdf_path, ckpt, device, out_dir, dpi=254):
     px_per_mm = dpi / 25.4              # 254 dpi -> 10.0 px/mm
     px_per_sec = 25.0 * px_per_mm       # 25 mm/s
     px_per_mv = 10.0 * px_per_mm        # 10 mm/mV
+
+    # JALUR UTAMA: bila PDF vektor -> baca sinyal EKSAK (tanpa digitalisasi).
+    vec = extract_vector_signals(pdf_path, dpi)
+    if vec is not None:
+        leads, meta = vec
+        os.makedirs(out_dir, exist_ok=True)
+        base_name = os.path.splitext(os.path.basename(pdf_path))[0]
+        with open(os.path.join(out_dir, base_name + '_signals.json'), 'w') as f:
+            json.dump({'meta': meta, 'leads': leads}, f)
+        bgr = render_pdf(pdf_path, dpi)
+        y0, y1, x0, x1 = meta['ecg_region']
+        x_lo = x0 + int(6.5 * px_per_mm)
+        _plot(leads, px_per_sec, x1 - x_lo, base_name, out_dir, bgr,
+              np.zeros(bgr.shape[:2], np.uint8), meta['lane_baselines'],
+              int(np.median(np.diff(sorted(meta['lane_baselines']))) * 0.55),
+              x_lo, x1)
+        print(f"OK (VEKTOR eksak): 12 lane -> {out_dir}/{base_name}_*")
+        return leads, meta
 
     bgr = render_pdf(pdf_path, dpi)
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
@@ -325,6 +490,10 @@ def digitize(pdf_path, ckpt, device, out_dir, dpi=254):
         mask, offmap = predict_mask_offset(net, rgb, device=device)
     else:
         mask = predict_mask(net, rgb, device=device); offmap = None
+
+    # Model STRIP per-lead (Rahimi): pisah trace bersilang secara segmentasi
+    # (V3 tak memanjat ke V2). Lane tetap dideteksi dari mask global di atas.
+    strip_net, strip_H = _load_strip_net(device)
 
     # Baseline AKTUAL dari densitas mask
     raw = detect_lanes_smart(mask, y0, y1)
@@ -380,15 +549,65 @@ def digitize(pdf_path, ckpt, device, out_dir, dpi=254):
         top_ceiling = int(0.5 * px_per_mm) if i == 0 else (y0 + int(2 * px_per_mm))
         ylo = max(top_ceiling, base - hu)
         yhi = min(y1 - int(1 * px_per_mm), base + hd)
-        # momentum-trace mengikuti tinta (ride-up goresan QRS) -> tangkap puncak
-        # R/S yang tajam-sempit, yang smoothest-path (dp) lewati di baseline.
-        # Validasi GT sintetik: momentum > dp pada Pearson (.924 vs .917) DAN
-        # amplitudo (amp-err .433 vs .441), termasuk trace bersilang.
-        # despike LEMBUT (thr 1.5mV, maxrun 3) supaya QRS asli tak terpangkas.
-        mv = despike(momentum_trace(mask, base, ylo, yhi, x_lo, x_hi, px_per_mv),
-                     win=25, thr_mv=1.5, maxrun=3)
+        # OFFSET-MOMENTUM (instance-seg): buang piksel penyusup trace tetangga
+        # via peta offset, lalu momentum di mask BERSIH. Ini memisahkan trace
+        # bersilangan secara SPASIAL (bukan tambalan waktu): bleed tetangga
+        # hilang TAPI QRS sendiri (R-tinggi/S-dalam) tetap utuh. Fallback ke
+        # momentum biasa bila model tak punya channel offset.
+        if strip_net is not None:
+            # Segmentasi per-lead target-BERSIH -> momentum di mask bersih
+            smask, r0 = _strip_segment(strip_net, rgb, base, x_lo, x_hi,
+                                       strip_H, device)
+            sh = smask.shape[0]
+            mv = momentum_trace(smask, base - r0, 2, sh - 2,
+                                0, smask.shape[1], px_per_mv)
+            # ISI LUBANG dengan decode OFFSET-MOMENTUM (tanpa-lubang, trace ASLI)
+            # — bukan interpolasi/plateau. Strip-model menangani PEMISAHAN QRS
+            # (anti-collision); offset-momentum mengisi baseline-gap dgn trace
+            # nyata -> TIDAK ada "kotak"/plateau datar. Lubang mayoritas di
+            # baseline (bukan QRS) jd offset-momentum di situ bersih.
+            empty = (smask.sum(0) == 0)
+            if empty.any():
+                fill_mask = (_own_mask(mask, offmap, ys_sorted, i, ylo, yhi,
+                                       x_lo, x_hi) if offmap is not None else mask)
+                mv_off = momentum_trace(fill_mask, base, ylo, yhi, x_lo, x_hi,
+                                        px_per_mv)
+                L = min(len(mv), len(mv_off), len(empty)); e = empty[:L]
+                mv[:L][e] = mv_off[:L][e]
+            mv = despike(mv, win=25, thr_mv=1.5, maxrun=3)
+            lane_route[name] = 'strip-perlead'
+        else:
+            dec_mask = (_own_mask(mask, offmap, ys_sorted, i, ylo, yhi, x_lo, x_hi)
+                        if offmap is not None else mask)
+            # DP (smoothest-path) bukan momentum: momentum MEMANJAT goresan QRS-
+            # nyambung secara TAK KONSISTEN antar-beat (spike di sebagian beat,
+            # tidak di lainnya) -> artefak yg user lihat. DP mulus & KONSISTEN:
+            # tak memanjat goresan, TAPI defleksi asli (R-tinggi/S-dalam =trace
+            # nyambung) tetap tertangkap. Verifikasi: V3 0004 jadi konsisten ~0.3
+            # (r asli), V5 R 1.2 & V2 S tetap utuh.
+            mv = despike(dp_trace(dec_mask, base, ylo, yhi, x_lo, x_hi, px_per_mv,
+                                  smooth=0.01, baseline_pull=0.002),
+                         win=25, thr_mv=1.5, maxrun=3)
+            lane_route[name] = 'offset-dp' if offmap is not None else 'dp'
+        # KOREKSI BASELINE (baseline-wander removal standar): kurangi level
+        # isoelektrik (median) -> tiap lead oscillasi sekitar 0. Memperbaiki
+        # lead yg baseline-deteksinya meleset (mis. III/aVR yg sangat rapat,
+        # ~4mm, traces overlap -> offset konstan). Lead normal (median~0) tak
+        # terpengaruh. ST relatif baseline tetap terjaga.
+        mv = np.asarray(mv, float)
+        mv = mv - np.median(mv)
         leads[name] = mv.tolist()
-        lane_route[name] = 'momentum'
+
+    # DERIVASI LIMB LEAD dari I & II (hilangkan bleed overlap III/aVR/aVL/aVF).
+    if DERIVE_LIMB and 'I' in leads and 'II' in leads:
+        _I = np.asarray(leads['I'], float); _II = np.asarray(leads['II'], float)
+        if _I.std() > 0.03 and _II.std() > 0.03:      # I & II valid (bukan Lead-Off)
+            _III = _II - _I
+            for nm, val in (('III', _III), ('aVR', -(_I + _II) / 2.0),
+                            ('aVL', _I - _II / 2.0), ('aVF', _II - _I / 2.0)):
+                if nm in leads:
+                    leads[nm] = (val - np.median(val)).tolist()
+                    lane_route[nm] = 'derived-I-II'
     lanes = ys_sorted
 
     os.makedirs(out_dir, exist_ok=True)

@@ -18,7 +18,7 @@ from scipy.signal import find_peaks
 from validate_medical import parse_printed, estimate_hr
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-EXPORT = os.path.join(os.path.dirname(HERE), 'Export')
+EXPORT = os.path.join(os.path.dirname(HERE), '12-lead')
 
 
 def hr_and_rr(leads, fs):

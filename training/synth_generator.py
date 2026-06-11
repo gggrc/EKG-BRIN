@@ -336,6 +336,9 @@ def generate(n, seed):
         'trace_thick': 2,
     }
     layouts = ['clinical', 'separated', 'strips']
+    # bias ke 'strips' (1 lead/baris) -> di sinilah trace antar-lead PALING sering
+    # bersilang (R-tinggi lead bawah menembus lead atas). Robustness silang.
+    layout_w = ['clinical', 'separated', 'strips', 'strips', 'strips']
 
     made = 0
     for i, (fname_hr, scp) in enumerate(records):
@@ -348,12 +351,19 @@ def generate(n, seed):
         sig = rec.p_signal.astype(np.float32)  # (5000, 12)
         fs = int(rec.fs)
 
-        layout = pyrng.choice(layouts)
-        # Jarak antar-lead di-ACAK (22-32 mm). Nilai rapat -> R-wave tinggi
-        # MENYILANG lajur tetangga (seperti EKG nyata yg padat/LVH) -> model
-        # belajar memisahkan trace bersilangan via offset.
+        # AMPLITUDO: REALISTIS (cocok device Export) -> gain ringan saja. Gain
+        # ekstrem (LVH 3-4mV) sebelumnya bikin DOMAIN GAP & regresi di Export,
+        # jadi dibuang. Crossing tetap muncul alami dari spacing rapat di bawah.
+        sig = sig * float(rng.uniform(0.9, 1.25))
+
+        layout = pyrng.choice(layout_w)
+        # Spacing DICOCOKKAN ke Export nyata: median ~18mm, pasangan limb serapat
+        # ~11mm. Range 11-26mm -> model melihat crossing se-rapat Export (yg dulu
+        # tak pernah dilatih di 22-32mm -> sumber residual aVL/limb). Garis ~2px
+        # (tipis, seperti Export) dgn sedikit variasi.
         cfg = dict(base_cfg)
-        cfg['cell_mm_h'] = float(rng.uniform(22.0, 32.0))
+        cfg['cell_mm_h'] = float(rng.uniform(11.0, 26.0))
+        cfg['trace_thick'] = int(rng.choice([2, 2, 2, 1, 3]))
         img, mask, meta, offset = render_pair(sig, fs, layout, PTBXL_LEADS, cfg, rng)
         img, mask = degrade(img, mask, rng)
         meta['superclass'] = superclasses_of(scp)

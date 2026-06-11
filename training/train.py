@@ -88,10 +88,13 @@ def run(args):
                 seg = out[:, 0:1]
                 off = out[:, 1:2]
                 loss_seg = bce(seg, m) + dice_loss(seg, m)
-                # regresi offset HANYA pada piksel trace
-                diff = (off - o) * m
-                loss_off = (diff * diff).sum() / (m.sum() + 1.0)
-                loss = loss_seg + 0.5 * loss_off
+                # regresi offset pada piksel trace, DIBOBOT |o|: piksel jauh dari
+                # baseline (= goresan R/S yg MENYILANG lajur tetangga) ditekankan
+                # supaya offset tegas memisahkan trace bersilang.
+                wt = m * (1.0 + 2.0 * o.abs())
+                diff = off - o
+                loss_off = (wt * diff * diff).sum() / (wt.sum() + 1.0)
+                loss = loss_seg + 1.0 * loss_off          # bobot offset dinaikkan
             scaler.scale(loss).backward()
             scaler.step(opt)
             scaler.update()

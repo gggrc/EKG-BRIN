@@ -20,7 +20,7 @@ from validate_medical import parse_printed, estimate_hr
 from lead_quality import lead_quality_flags
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-EXPORT = os.path.join(os.path.dirname(HERE), 'Export')
+EXPORT = os.path.join(os.path.dirname(HERE), '12-lead')
 OUT = os.path.join(HERE, 'export_test', 'fhir_ready')
 CKPT = os.path.join(HERE, 'checkpoints', 'unet_best.pt')
 

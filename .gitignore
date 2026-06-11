@@ -8,11 +8,26 @@ training/classify/cache/
 training/checkpoints/unet_last.pt
 training/checkpoints/history.npy
 *.tmp
+# Model tak-terpakai (USE_STRIP=False) / redundan / besar -> tidak di-push
+training/checkpoints/strip_best.pt
+training/checkpoints/strip_r34_best.pt
+training/checkpoints/unet_best_prev.pt
+training/checkpoints/unet_domain.pt
+training/checkpoints/unet_new_aug.pt
 
 # ===== Gambar output besar (bisa dibuat ulang: python sidebyside_all.py / zoom_all.py) =====
 training/export_test/sidebyside/
 training/export_test/zoom/
 training/hasil/*.png
+hasil/*.png
+hasil/**/*.png
+hasil_universal/*.png
+# folder output hasil run_ecg.py / run_any.py (JSON kecil boleh, gambar tidak)
+
+# ===== Laporan & ilustrasi (DOKUMENTASI lokal; tim cukup baca kode + hasil JSON) =====
+laporan_ekg.html
+lap_img/
+metrik_hasil.json
 
 # ===== Python =====
 __pycache__/
