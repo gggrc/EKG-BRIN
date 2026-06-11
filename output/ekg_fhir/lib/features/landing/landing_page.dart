@@ -481,8 +481,8 @@ class _FeaturesSection extends StatelessWidget {
           const Text('Platform lengkap untuk pengelolaan data EKG digital', style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
           const SizedBox(height: 48),
           Wrap(
-            spacing: 24,
-            runSpacing: 24,
+            spacing: 32,
+            runSpacing: 16,
             children: features.map((f) => SizedBox(
               width: 300,
               child: Container(

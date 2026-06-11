@@ -276,7 +276,7 @@ class _Sidebar extends StatelessWidget {
                     ),
                   ],
 
-                  if (role == UserRole.doctor || role == UserRole.admin) ...[
+                  if (role == UserRole.nakes || role == UserRole.admin) ...[
                     _NavItem(
                       icon: Icons.medical_information_rounded,
                       label: 'Diagnosis',
@@ -387,12 +387,10 @@ class _Sidebar extends StatelessWidget {
     switch (role) {
       case UserRole.patient:
         return AppColors.rolePatient;
-      case UserRole.healthcareWorker:
+      case UserRole.nakes:
         return AppColors.roleNakes;
-      case UserRole.doctor:
-        return AppColors.roleDoctor;
       case UserRole.admin:
-        return AppColors.roleAdmin;
+        return AppColors.roleDoctor;
       default:
         return AppColors.primary;
     }

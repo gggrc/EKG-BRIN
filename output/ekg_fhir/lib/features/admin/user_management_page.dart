@@ -73,7 +73,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                 Expanded(flex: 3, child: Text('Nama', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted))),
                 Expanded(flex: 3, child: Text('Email', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted))),
                 Expanded(flex: 2, child: Text('Role', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted))),
-                Expanded(flex: 2, child: Text('Institusi', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted))),
+                Expanded(flex: 2, child: Text('No. Telepon', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted))),
                 Expanded(child: Text('Login Terakhir', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted))),
                 SizedBox(width: 80, child: Text('Aksi', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted))),
               ],
@@ -117,7 +117,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                         decoration: BoxDecoration(color: roleColor.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
                         child: Text(user.role.shortName, style: TextStyle(fontSize: 11, color: roleColor, fontWeight: FontWeight.w600)),
                       )),
-                      Expanded(flex: 2, child: Text(user.institution ?? '-', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis)),
+                      Expanded(flex: 2, child: Text(user.phoneNumber ?? '-', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis)),
                       Expanded(child: Text(
                         _timeAgo(lastLogin),
                         style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
@@ -159,9 +159,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
   Color _roleColor(UserRole role) {
     switch (role) {
       case UserRole.patient: return AppColors.rolePatient;
-      case UserRole.healthcareWorker: return AppColors.roleNakes;
-      case UserRole.doctor: return AppColors.roleDoctor;
-      case UserRole.admin: return AppColors.roleAdmin;
+      case UserRole.nakes:   return AppColors.roleNakes;
+      case UserRole.admin:   return AppColors.roleAdmin;
     }
   }
 
