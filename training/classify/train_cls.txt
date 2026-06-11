@@ -1,0 +1,122 @@
+device: cuda
+data: (21388, 12, 1000) distribusi: {'NORM': 9514, 'MI': 5469, 'STTC': 5235, 'CD': 4898, 'HYP': 2649}
+train 17084 | val 2146 | test 2158
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:71: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=(dev == 'cuda'))
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep   1/40 | loss 0.3581 | val macroAUC 0.8982 | 3.8s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep   2/40 | loss 0.2993 | val macroAUC 0.9035 | 2.8s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep   3/40 | loss 0.2812 | val macroAUC 0.9110 | 2.9s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep   4/40 | loss 0.2703 | val macroAUC 0.9179 | 2.9s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep   5/40 | loss 0.2639 | val macroAUC 0.9210 | 2.8s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep   6/40 | loss 0.2592 | val macroAUC 0.9163 | 2.8s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep   7/40 | loss 0.2522 | val macroAUC 0.9233 | 2.8s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep   8/40 | loss 0.2468 | val macroAUC 0.9197 | 2.8s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep   9/40 | loss 0.2452 | val macroAUC 0.9191 | 2.8s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  10/40 | loss 0.2388 | val macroAUC 0.9233 | 2.9s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  11/40 | loss 0.2362 | val macroAUC 0.9217 | 2.9s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  12/40 | loss 0.2312 | val macroAUC 0.9259 | 2.8s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  13/40 | loss 0.2280 | val macroAUC 0.9262 | 2.9s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  14/40 | loss 0.2230 | val macroAUC 0.9266 | 3.1s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  15/40 | loss 0.2182 | val macroAUC 0.9286 | 2.8s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  16/40 | loss 0.2154 | val macroAUC 0.9236 | 2.9s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  17/40 | loss 0.2098 | val macroAUC 0.9237 | 2.8s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  18/40 | loss 0.2053 | val macroAUC 0.9215 | 2.9s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  19/40 | loss 0.1990 | val macroAUC 0.9213 | 2.8s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  20/40 | loss 0.1964 | val macroAUC 0.9271 | 2.9s
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+ep  21/40 | loss 0.1918 | val macroAUC 0.9265 | 2.9s
+early-stop ep 21 (best val AUC 0.9286)
+C:\BRINDATA\EKG-BRIN\training\classify\train_cls.py:49: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == 'cuda')):
+
+=== HASIL TEST (fold 10) ===
+  macro-AUC = 0.925  (benchmark PTB-XL ~0.90-0.93)
+  macro-F1  = 0.737
+  AUC NORM  = 0.949
+  AUC MI    = 0.922
+  AUC STTC  = 0.937
+  AUC CD    = 0.917
+  AUC HYP   = 0.902

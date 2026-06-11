@@ -1,0 +1,69 @@
+C:\BRINDATA\EKG-BRIN\training\train.py:69: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=(dev == "cuda"))
+C:\BRINDATA\EKG-BRIN\training\train.py:81: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == "cuda")):
+C:\BRINDATA\EKG-BRIN\training\train.py:95: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=(dev == "cuda")):
+device: cuda NVIDIA GeForce RTX 3060 Laptop GPU
+train 1020 | val 180 | steps/epoch 63
+ep   1/60 | loss 1.2339 | val Dice 0.6432 | 31.6s
+ep   2/60 | loss 0.9263 | val Dice 0.6855 | 31.2s
+ep   3/60 | loss 0.7270 | val Dice 0.6944 | 31.3s
+ep   4/60 | loss 0.6120 | val Dice 0.6910 | 31.4s
+ep   5/60 | loss 0.5388 | val Dice 0.7099 | 31.9s
+ep   6/60 | loss 0.5263 | val Dice 0.6919 | 31.9s
+ep   7/60 | loss 0.5119 | val Dice 0.6857 | 32.1s
+ep   8/60 | loss 0.4926 | val Dice 0.7084 | 32.0s
+ep   9/60 | loss 0.5011 | val Dice 0.6920 | 31.8s
+ep  10/60 | loss 0.4894 | val Dice 0.6950 | 32.9s
+ep  11/60 | loss 0.4872 | val Dice 0.6911 | 31.8s
+ep  12/60 | loss 0.4932 | val Dice 0.6900 | 31.1s
+ep  13/60 | loss 0.4972 | val Dice 0.6824 | 31.1s
+ep  14/60 | loss 0.4862 | val Dice 0.7082 | 31.3s
+ep  15/60 | loss 0.4808 | val Dice 0.6891 | 32.0s
+ep  16/60 | loss 0.4840 | val Dice 0.7081 | 31.6s
+ep  17/60 | loss 0.4764 | val Dice 0.6835 | 31.8s
+ep  18/60 | loss 0.4818 | val Dice 0.6971 | 31.9s
+ep  19/60 | loss 0.4668 | val Dice 0.6961 | 32.2s
+ep  20/60 | loss 0.4738 | val Dice 0.6877 | 31.9s
+ep  21/60 | loss 0.4606 | val Dice 0.7001 | 31.9s
+ep  22/60 | loss 0.4630 | val Dice 0.7098 | 31.9s
+ep  23/60 | loss 0.4598 | val Dice 0.7126 | 31.4s
+ep  24/60 | loss 0.4726 | val Dice 0.6872 | 32.0s
+ep  25/60 | loss 0.4580 | val Dice 0.7089 | 31.1s
+ep  26/60 | loss 0.4528 | val Dice 0.7165 | 32.5s
+ep  27/60 | loss 0.4521 | val Dice 0.6940 | 32.7s
+ep  28/60 | loss 0.4575 | val Dice 0.7057 | 32.1s
+ep  29/60 | loss 0.4653 | val Dice 0.7078 | 32.1s
+ep  30/60 | loss 0.4566 | val Dice 0.7058 | 32.1s
+ep  31/60 | loss 0.4535 | val Dice 0.7135 | 31.9s
+ep  32/60 | loss 0.4501 | val Dice 0.6939 | 32.0s
+ep  33/60 | loss 0.4614 | val Dice 0.6944 | 32.1s
+ep  34/60 | loss 0.4524 | val Dice 0.7167 | 32.0s
+ep  35/60 | loss 0.4610 | val Dice 0.7048 | 32.1s
+ep  36/60 | loss 0.4495 | val Dice 0.7013 | 32.0s
+ep  37/60 | loss 0.4523 | val Dice 0.7055 | 31.8s
+ep  38/60 | loss 0.4527 | val Dice 0.6941 | 32.2s
+ep  39/60 | loss 0.4539 | val Dice 0.7123 | 32.4s
+ep  40/60 | loss 0.4538 | val Dice 0.6909 | 32.1s
+ep  41/60 | loss 0.4379 | val Dice 0.7114 | 32.1s
+ep  42/60 | loss 0.4301 | val Dice 0.7124 | 32.0s
+ep  43/60 | loss 0.4332 | val Dice 0.7058 | 32.2s
+ep  44/60 | loss 0.4271 | val Dice 0.7064 | 32.2s
+ep  45/60 | loss 0.4231 | val Dice 0.7032 | 31.9s
+ep  46/60 | loss 0.4226 | val Dice 0.6975 | 32.1s
+ep  47/60 | loss 0.4206 | val Dice 0.7182 | 31.9s
+ep  48/60 | loss 0.4259 | val Dice 0.7109 | 32.0s
+ep  49/60 | loss 0.4170 | val Dice 0.7185 | 31.8s
+ep  50/60 | loss 0.4221 | val Dice 0.7047 | 31.2s
+ep  51/60 | loss 0.4255 | val Dice 0.6977 | 31.8s
+ep  52/60 | loss 0.4241 | val Dice 0.7102 | 32.0s
+ep  53/60 | loss 0.4164 | val Dice 0.7179 | 31.2s
+ep  54/60 | loss 0.4229 | val Dice 0.7007 | 31.9s
+ep  55/60 | loss 0.4206 | val Dice 0.7312 | 32.1s
+ep  56/60 | loss 0.4208 | val Dice 0.7269 | 31.9s
+ep  57/60 | loss 0.4130 | val Dice 0.7151 | 32.0s
+ep  58/60 | loss 0.4224 | val Dice 0.6978 | 31.4s
+ep  59/60 | loss 0.4180 | val Dice 0.7064 | 32.1s
+ep  60/60 | loss 0.4165 | val Dice 0.7206 | 32.1s
+selesai. best val Dice 0.7312 -> C:\BRINDATA\EKG-BRIN\training\checkpoints/unet_best.pt

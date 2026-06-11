@@ -1,0 +1,32 @@
+# ===== Dataset besar (JANGAN di-push — unduh/buat ulang lokal) =====
+ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.3/
+training/dataset/
+training/classify/cache/
+
+# ===== Model redundan / artefak latih =====
+# (model yang DIPAKAI: unet_best.pt, ecgnet_best.pt, norm_stats.npz -> di-track)
+training/checkpoints/unet_last.pt
+training/checkpoints/history.npy
+*.tmp
+
+# ===== Gambar output besar (bisa dibuat ulang: python sidebyside_all.py / zoom_all.py) =====
+training/export_test/sidebyside/
+training/export_test/zoom/
+training/hasil/*.png
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# ===== OS / editor =====
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# CATATAN: data pasien (Export/ PDF + JSON hasil) SENGAJA ikut di-push
+# (pilihan pemilik repo; PDF sudah de-identified: hanya ID urut + sex).
