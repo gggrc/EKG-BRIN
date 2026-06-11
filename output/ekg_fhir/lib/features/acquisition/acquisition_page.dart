@@ -1,10 +1,10 @@
 // lib/features/acquisition/acquisition_page.dart
-// Halaman akuisisi / upload data EKG
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/mock/mock_data.dart';
 import '../../core/router/app_router.dart';
+import '../../core/models/patient_model.dart';
 
 class AcquisitionPage extends StatefulWidget {
   const AcquisitionPage({super.key});
@@ -14,12 +14,197 @@ class AcquisitionPage extends StatefulWidget {
 }
 
 class _AcquisitionPageState extends State<AcquisitionPage> {
+  final _supabase = Supabase.instance.client;
+  late Future<List<PatientModel>> _patientsFuture;
+  
   String? _selectedPatientId;
-  String? _selectedDeviceId;
-  String _uploadType = 'pdf';
   bool _isUploading = false;
   double _uploadProgress = 0;
   String? _uploadedFile;
+  
+  String _dropdownSearchQuery = '';
+  final LayerLink _patientLayerLink = LayerLink();
+  OverlayEntry? _patientOverlayEntry;
+  bool _isPatientDropdownOpen = false;
+  final TextEditingController _patientSearchController = TextEditingController();
+  List<PatientModel> _allPatients = [];
+  final GlobalKey _patientDropdownKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPatientsFromDatabase();
+  }
+
+  @override
+  void dispose() {
+    _removePatientOverlay();
+    _patientSearchController.dispose();
+    super.dispose();
+  }
+
+  void _removePatientOverlay() {
+    _patientOverlayEntry?.remove();
+    _patientOverlayEntry = null;
+    _isPatientDropdownOpen = false;
+  }
+
+  void _togglePatientDropdown(List<PatientModel> patients) {
+    if (_isPatientDropdownOpen) {
+      _removePatientOverlay();
+      setState(() {});
+      return;
+    }
+    _allPatients = patients;
+    _dropdownSearchQuery = '';
+    _patientSearchController.clear();
+    _showPatientOverlay(patients);
+    setState(() { _isPatientDropdownOpen = true; });
+  }
+
+  void _showPatientOverlay(List<PatientModel> patients) {
+    final overlay = Overlay.of(context);
+    final showSearch = patients.length > 5;
+
+    // Measure the trigger widget width
+    double dropdownWidth = 300;
+    final renderBox = _patientDropdownKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null) {
+      dropdownWidth = renderBox.size.width;
+    }
+
+    _patientOverlayEntry = OverlayEntry(
+      builder: (ctx) {
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () {
+            _removePatientOverlay();
+            setState(() {});
+          },
+          child: Stack(
+            children: [
+              Positioned.fill(child: Container(color: Colors.transparent)),
+              CompositedTransformFollower(
+                link: _patientLayerLink,
+                showWhenUnlinked: false,
+                offset: const Offset(0, 48),
+                child: GestureDetector(
+                  onTap: () {}, // prevent tap-through
+                  child: SizedBox(
+                    width: dropdownWidth,
+                    child: Material(
+                      elevation: 6,
+                      borderRadius: BorderRadius.circular(10),
+                      color: const Color(0xFF1E2433),
+                    child: StatefulBuilder(
+                      builder: (ctx2, setOverlayState) {
+                        final filtered = _allPatients.where((p) =>
+                          p.fullName.toLowerCase().contains(_dropdownSearchQuery.toLowerCase()) ||
+                          p.medicalRecordNumber.toLowerCase().contains(_dropdownSearchQuery.toLowerCase())
+                        ).toList();
+
+                        return Container(
+                          constraints: const BoxConstraints(maxHeight: 280),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E2433),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.borderLight),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (showSearch)
+                                Container(
+                                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+                                  child: TextField(
+                                    controller: _patientSearchController,
+                                    autofocus: true,
+                                    style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                                    decoration: InputDecoration(
+                                      hintText: 'Search...',
+                                      hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      filled: true,
+                                      fillColor: const Color(0xFF252B3B),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                        borderSide: BorderSide(color: AppColors.borderLight),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                        borderSide: BorderSide(color: AppColors.borderLight),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                        borderSide: const BorderSide(color: AppColors.primary),
+                                      ),
+                                    ),
+                                    onChanged: (val) {
+                                      setState(() => _dropdownSearchQuery = val);
+                                      setOverlayState(() {});
+                                    },
+                                  ),
+                                ),
+                              Flexible(
+                                child: ListView.builder(
+                                  shrinkWrap: true,
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  itemCount: filtered.length,
+                                  itemBuilder: (_, i) {
+                                    final p = filtered[i];
+                                    final isSelected = _selectedPatientId == p.patientId;
+                                    return InkWell(
+                                      onTap: () {
+                                        setState(() => _selectedPatientId = p.patientId);
+                                        _removePatientOverlay();
+                                        setState(() {});
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        color: isSelected ? AppColors.primary.withOpacity(0.15) : Colors.transparent,
+                                        child: Text(
+                                          '${p.fullName} (${p.medicalRecordNumber})',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    overlay.insert(_patientOverlayEntry!);
+  }
+
+  void _fetchPatientsFromDatabase() {
+    setState(() {
+      _patientsFuture = _supabase
+          .from('patients')
+          .select()
+          .order('full_name', ascending: true)
+          .then((response) {
+            final List data = response as List;
+            return data.map((json) => PatientModel.fromJson(json)).toList();
+          });
+    });
+  }
 
   Future<void> _simulateUpload() async {
     if (_selectedPatientId == null) {
@@ -56,36 +241,94 @@ class _AcquisitionPageState extends State<AcquisitionPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Main form
           Expanded(
             flex: 2,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Step 1: Select patient
                 _StepCard(
                   step: 1,
-                  title: 'Pilih Pasien',
-                  children: [
-                    DropdownButtonFormField<String>(
-                      value: _selectedPatientId,
-                      dropdownColor: AppColors.surface,
-                      decoration: const InputDecoration(
-                        labelText: 'Pasien',
-                        prefixIcon: Icon(Icons.person_search_rounded, size: 18),
-                      ),
-                      items: MockData.patients.map((p) => DropdownMenuItem(
-                        value: p.patientId,
-                        child: Column(
+                    title: 'Pilih Pasien',
+                    children: [
+                      FutureBuilder<List<PatientModel>>(
+                        future: _patientsFuture,
+                        builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Row(
+                              children: [
+                                SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                                SizedBox(width: 12),
+                                Text('Memuat data pasien...', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                              ],
+                            ),
+                          );
+                        }
+
+                        if (snapshot.hasError) {
+                          return Text('Error: ${snapshot.error}', style: const TextStyle(color: AppColors.danger));
+                        }
+
+                        final allPatients = snapshot.data ?? [];
+
+                        final selectedPatient = allPatients.cast<PatientModel?>().firstWhere(
+                          (p) => p?.patientId == _selectedPatientId,
+                          orElse: () => null,
+                        );
+
+                        return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(p.fullName, style: const TextStyle(fontSize: 13)),
-                            Text(p.medicalRecordNumber, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                "Pasien",
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+                              ),
+                            ),
+                            CompositedTransformTarget(
+                              link: _patientLayerLink,
+                              child: GestureDetector(
+                                onTap: () => _togglePatientDropdown(allPatients),
+                                child: Container(
+                                  key: _patientDropdownKey,
+                                  height: 48,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceVariant,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: _isPatientDropdownOpen ? AppColors.primary : AppColors.borderLight,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          selectedPatient != null
+                                              ? '${selectedPatient.fullName} (${selectedPatient.medicalRecordNumber})'
+                                              : 'Pilih Pasien',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: selectedPatient != null ? AppColors.textPrimary : AppColors.textMuted,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      AnimatedRotation(
+                                        turns: _isPatientDropdownOpen ? 0.5 : 0,
+                                        duration: const Duration(milliseconds: 200),
+                                        child: const Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: AppColors.textMuted),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
-                        ),
-                      )).toList(),
-                      onChanged: (v) => setState(() => _selectedPatientId = v),
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
                     TextButton.icon(
@@ -95,52 +338,12 @@ class _AcquisitionPageState extends State<AcquisitionPage> {
                     ),
                   ],
                 ),
+                    
                 const SizedBox(height: 16),
 
-                // Step 2: Select device
+                // Step 2: Upload file
                 _StepCard(
                   step: 2,
-                  title: 'Pilih Perangkat EKG',
-                  children: [
-                    DropdownButtonFormField<String>(
-                      value: _selectedDeviceId,
-                      dropdownColor: AppColors.surface,
-                      decoration: const InputDecoration(
-                        labelText: 'Perangkat EKG',
-                        prefixIcon: Icon(Icons.devices_rounded, size: 18),
-                      ),
-                      items: MockData.devices.map((d) => DropdownMenuItem(
-                        value: d['id'],
-                        child: Text('${d['name']} (${d['serial']})'),
-                      )).toList(),
-                      onChanged: (v) => setState(() => _selectedDeviceId = v),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Step 3: Upload type
-                _StepCard(
-                  step: 3,
-                  title: 'Pilih Jenis Upload',
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _UploadTypeChip(icon: Icons.picture_as_pdf_rounded, label: 'PDF', value: 'pdf', selected: _uploadType == 'pdf', onTap: () => setState(() { _uploadType = 'pdf'; _uploadedFile = null; })),
-                        _UploadTypeChip(icon: Icons.image_rounded, label: 'Gambar', value: 'image', selected: _uploadType == 'image', onTap: () => setState(() { _uploadType = 'image'; _uploadedFile = null; })),
-                        _UploadTypeChip(icon: Icons.table_chart_rounded, label: 'CSV / Excel', value: 'csv', selected: _uploadType == 'csv', onTap: () => setState(() { _uploadType = 'csv'; _uploadedFile = null; })),
-                        _UploadTypeChip(icon: Icons.medical_information_rounded, label: 'HL7/XML', value: 'hl7', selected: _uploadType == 'hl7', onTap: () => setState(() { _uploadType = 'hl7'; _uploadedFile = null; })),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Step 4: Upload file
-                _StepCard(
-                  step: 4,
                   title: 'Upload File EKG',
                   children: [
                     if (_uploadedFile == null)
@@ -289,7 +492,7 @@ class _StepCard extends StatelessWidget {
               Container(
                 width: 28,
                 height: 28,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   gradient: AppColors.primaryGradient,
                   shape: BoxShape.circle,
                 ),
