@@ -10,13 +10,14 @@ class MockData {
   MockData._();
 
   // === MOCK USERS ===
+  // Disesuaikan dengan properti asli UserModel (userId, email, name, role, gender, phoneNumber, avatarUrl, createdAt)
   static final List<UserModel> users = [
     UserModel(
       userId: 'u-001',
       email: 'budi.pasien@email.com',
       name: 'Budi Santoso',
       role: UserRole.patient,
-      patientId: 'p-001',
+      gender: 'M',
       phoneNumber: '08123456789',
       createdAt: DateTime(2024, 1, 15),
     ),
@@ -24,8 +25,8 @@ class MockData {
       userId: 'u-002',
       email: 'siti.nakes@rsud.id',
       name: 'Siti Rahayu, Amd.Kep',
-      role: UserRole.healthcareWorker,
-      institution: 'RSUD Dr. Soetomo Surabaya',
+      role: UserRole.nakes, // Menggunakan UserRole.nakes sesuai enum
+      gender: 'F',
       phoneNumber: '08234567890',
       createdAt: DateTime(2024, 2, 1),
     ),
@@ -33,9 +34,8 @@ class MockData {
       userId: 'u-003',
       email: 'dr.andi@rsud.id',
       name: 'dr. Andi Prasetyo, Sp.JP',
-      role: UserRole.doctor,
-      specialty: 'Kardiologi',
-      institution: 'RSUD Dr. Soetomo Surabaya',
+      role: UserRole.nakes, // Dokter digolongkan ke dalam UserRole.nakes
+      gender: 'M',
       phoneNumber: '08345678901',
       createdAt: DateTime(2023, 8, 10),
     ),
@@ -44,20 +44,16 @@ class MockData {
       email: 'admin.brin@brin.go.id',
       name: 'Peneliti BRIN',
       role: UserRole.admin,
-      institution: 'BRIN — Badan Riset dan Inovasi Nasional',
+      gender: 'M',
       phoneNumber: '08456789012',
       createdAt: DateTime(2023, 1, 1),
     ),
   ];
 
-  // Demo login presets
+  // Demo login presets (Disesuaikan dengan key UserRole yang valid)
   static final Map<UserRole, Map<String, String>> demoCredentials = {
     UserRole.patient: {'email': 'budi.pasien@email.com', 'password': 'demo123'},
-    UserRole.healthcareWorker: {
-      'email': 'siti.nakes@rsud.id',
-      'password': 'demo123'
-    },
-    UserRole.doctor: {'email': 'dr.andi@rsud.id', 'password': 'demo123'},
+    UserRole.nakes: {'email': 'dr.andi@rsud.id', 'password': 'demo123'},
     UserRole.admin: {'email': 'admin.brin@brin.go.id', 'password': 'demo123'},
   };
 
@@ -151,8 +147,6 @@ class MockData {
   ];
 
   // === MOCK ECG SIGNAL GENERATOR ===
-  // Menghasilkan sinyal EKG sintetik yang realistis
-  // Justifikasi: prototype membutuhkan data sintetik untuk demonstrasi visual
   static List<double> generateEcgSignal({
     int samples = 500,
     double heartRateBpm = 72,
@@ -165,20 +159,9 @@ class MockData {
     final double samplingRate = 500.0;
     final double rrInterval = 60.0 / heartRateBpm * samplingRate;
 
-    // Lead-specific amplitude modifiers
     final Map<String, double> leadAmplitudes = {
-      'I': 0.7,
-      'II': 1.0,
-      'III': 0.5,
-      'aVR': -0.8,
-      'aVL': 0.4,
-      'aVF': 0.9,
-      'V1': -0.6,
-      'V2': 0.3,
-      'V3': 0.8,
-      'V4': 1.2,
-      'V5': 1.1,
-      'V6': 0.9,
+      'I': 0.7, 'II': 1.0, 'III': 0.5, 'aVR': -0.8, 'aVL': 0.4, 'aVF': 0.9,
+      'V1': -0.6, 'V2': 0.3, 'V3': 0.8, 'V4': 1.2, 'V5': 1.1, 'V6': 0.9,
     };
     final double leadMod = leadAmplitudes[leadType] ?? 1.0;
 
@@ -186,28 +169,18 @@ class MockData {
       final double t = (i % rrInterval) / rrInterval;
       double value = 0.0;
 
-      // P wave (atrial depolarization)
       value += amplitude * leadMod * 0.25 * _gaussian(t, 0.1, 0.04);
-
-      // QRS complex (ventricular depolarization)
-      // Q wave
       value += amplitude * leadMod * -0.15 * _gaussian(t, 0.25, 0.01);
-      // R wave (dominant)
       value += amplitude * leadMod * 1.0 * _gaussian(t, 0.28, 0.015);
-      // S wave
       value += amplitude * leadMod * -0.25 * _gaussian(t, 0.32, 0.01);
-
-      // T wave (ventricular repolarization)
       value += amplitude * leadMod * 0.35 * _gaussian(t, 0.55, 0.07);
 
-      // Noise
       if (hasNoise) {
         value += (random.nextDouble() - 0.5) * 0.05;
       }
 
       signal.add(value);
     }
-
     return signal;
   }
 
@@ -488,8 +461,8 @@ class MockData {
         userId: 'u-005',
         email: 'perawat.budi@puskesmas.id',
         name: 'Budi Hermawan, Amd.Kep',
-        role: UserRole.healthcareWorker,
-        institution: 'Puskesmas Gubeng',
+        role: UserRole.nakes, // Menggunakan UserRole.nakes
+        gender: 'M',
         createdAt: DateTime(2025, 3, 1),
       ),
       'lastLogin': DateTime.now().subtract(const Duration(days: 2)),
@@ -500,9 +473,8 @@ class MockData {
         userId: 'u-006',
         email: 'dr.maya@rs-islam.id',
         name: 'dr. Maya Kusuma, Sp.PD',
-        role: UserRole.doctor,
-        specialty: 'Penyakit Dalam',
-        institution: 'RS Islam Surabaya',
+        role: UserRole.nakes, // Menggunakan UserRole.nakes
+        gender: 'F',
         createdAt: DateTime(2025, 5, 15),
       ),
       'lastLogin': DateTime.now().subtract(const Duration(hours: 3)),

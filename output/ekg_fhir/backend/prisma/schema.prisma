@@ -3,28 +3,53 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DIRECT_URL")
+}
+
+enum UserRole {
+  PATIENT
+  NAKES
+  ADMIN
+}
+
+model User {
+  user_id       String    @id @default(uuid()) @db.Uuid
+  full_name     String
+  email         String    @unique
+  gender        String?
+  phone_number  String?   @unique
+  role          UserRole  @default(PATIENT)
+
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  // opposite relation
+  patient              Patient?
+  created_ecg_sessions EcgSession[] @relation("CreatedByUser")
 }
 
 model Patient {
-  patient_id            String       @id @default(uuid()) @db.Uuid
-  full_name             String       @db.VarChar(255)
-  medical_record_number String       @unique @db.VarChar(100)
-  gender                String       @db.VarChar(20)
-  birth_date            DateTime     @db.Date
+  patient_id            String   @id @default(uuid()) @db.Uuid
+  user_id               String?  @unique @db.Uuid
+
+  full_name             String   @db.VarChar(255)
+  medical_record_number String   @unique @db.VarChar(100)
+  gender                String   @db.VarChar(20)
+  birth_date            DateTime @db.Date
   height_cm             Float?
   weight_kg             Float?
 
+  user                  User?         @relation(fields: [user_id], references: [user_id], onDelete: SetNull)
   ecg_sessions          EcgSession[]
 
   @@map("patients")
 }
 
 model Device {
-  device_id      String       @id @default(uuid()) @db.Uuid
-  device_name    String       @db.VarChar(255)
-  serial_number  String       @unique @db.VarChar(100)
+  device_id      String @id @default(uuid()) @db.Uuid
+  device_name    String @db.VarChar(255)
+  serial_number  String @unique @db.VarChar(100)
 
   ecg_sessions   EcgSession[]
 
@@ -32,65 +57,70 @@ model Device {
 }
 
 model EcgSession {
-  session_id         String          @id @default(uuid()) @db.Uuid
+  session_id         String   @id @default(uuid()) @db.Uuid
 
-  patient_id         String          @db.Uuid
-  device_id          String          @db.Uuid
+  patient_id         String   @db.Uuid
+  device_id          String   @db.Uuid
+
+  created_by         String?  @db.Uuid
 
   examination_time   DateTime
   duration_sec       Int
-  lead_configuration String          @db.VarChar(100)
-  status             String          @db.VarChar(50)
-  source_type        String          @db.VarChar(50)
+  lead_configuration String   @db.VarChar(100)
+  status             String   @db.VarChar(50)
+  source_type        String   @db.VarChar(50)
 
-  patient            Patient         @relation(fields: [patient_id], references: [patient_id], onDelete: Cascade)
-  device             Device          @relation(fields: [device_id], references: [device_id], onDelete: Restrict)
+  patient            Patient  @relation(fields: [patient_id], references: [patient_id], onDelete: Cascade)
+  device             Device   @relation(fields: [device_id], references: [device_id], onDelete: Restrict)
+  creator            User?    @relation("CreatedByUser", fields: [created_by], references: [user_id], onDelete: SetNull)
 
   ecg_signal_data    EcgSignalData?
   ecg_analysis       EcgAnalysis?
 
   @@index([patient_id])
   @@index([device_id])
+  @@index([created_by])
+
   @@map("ecg_sessions")
 }
 
 model EcgSignalData {
-  signal_id        BigInt      @id @default(autoincrement())
-  session_id       String      @unique @db.Uuid
+  signal_id        BigInt @id @default(autoincrement())
+  session_id       String @unique @db.Uuid
 
-  lead_type        String      @db.VarChar(50)
+  lead_type        String @db.VarChar(50)
   sampling_rate    Int
   sample_count     Int
-
   signal_data      Json
-
   min_voltage_mv   Float?
   max_voltage_mv   Float?
 
-  session          EcgSession  @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
+  session          EcgSession @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
 
   @@index([session_id])
+
   @@map("ecg_signal_data")
 }
 
 model EcgAnalysis {
-  analysis_id       String      @id @default(uuid()) @db.Uuid
-  session_id        String      @unique @db.Uuid
+  analysis_id      String @id @default(uuid()) @db.Uuid
+  session_id       String @unique @db.Uuid
 
-  heart_rate_bpm    Int?
-  rhythm_type       String?     @db.VarChar(100)
+  heart_rate_bpm   Int?
+  rhythm_type      String? @db.VarChar(100)
 
-  pr_interval       Float?
-  qrs_duration      Float?
-  qt_interval       Float?
-  qtc_interval_ms   Float?
+  pr_interval      Float?
+  qrs_duration     Float?
+  qt_interval      Float?
+  qtc_interval_ms  Float?
 
-  electrical_axis   Float?
+  electrical_axis  Float?
 
-  diagnosis         String?     @db.Text
+  diagnosis        String? @db.Text
 
-  session           EcgSession  @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
+  session          EcgSession @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
 
   @@index([session_id])
+
   @@map("ecg_analysis")
 }

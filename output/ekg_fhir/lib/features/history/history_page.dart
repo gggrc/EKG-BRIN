@@ -20,13 +20,14 @@ class _HistoryPageState extends State<HistoryPage> {
   String _statusFilter = 'Semua';
   String _leadFilter = 'Semua';
 
-  List<EcgSession> _getFilteredSessions(UserRole? role) {
+  List<EcgSession> _getFilteredSessions(UserModel? user) {
     final all = MockData.ecgSessions;
     return all.where((s) {
-      if (role == UserRole.patient) {
-        final user = context.read<AuthProvider>().currentUser;
-        if (s.patientId != user?.patientId) return false;
+      // Jika user adalah pasien, hanya tampilkan data milik dirinya sendiri
+      if (user?.role == UserRole.patient) {
+        if (s.patientId != user?.userId) return false;
       }
+      
       final matchSearch = s.patientName.toLowerCase().contains(_search.toLowerCase()) ||
           s.sessionId.toLowerCase().contains(_search.toLowerCase());
       final matchStatus = _statusFilter == 'Semua' || s.statusDisplay == _statusFilter;
@@ -37,8 +38,9 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<AuthProvider>().userRole;
-    final sessions = _getFilteredSessions(role);
+    // Mengambil data user langsung dari AuthProvider
+    final user = context.watch<AuthProvider>().currentUser;
+    final sessions = _getFilteredSessions(user);
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -90,7 +92,7 @@ class _HistoryPageState extends State<HistoryPage> {
             child: ListView.separated(
               itemCount: sessions.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, i) => _SessionCard(session: sessions[i], role: role),
+              itemBuilder: (context, i) => _SessionCard(session: sessions[i], user: user),
             ),
           ),
         ],
@@ -101,8 +103,8 @@ class _HistoryPageState extends State<HistoryPage> {
 
 class _SessionCard extends StatelessWidget {
   final EcgSession session;
-  final UserRole? role;
-  const _SessionCard({required this.session, required this.role});
+  final UserModel? user;
+  const _SessionCard({required this.session, required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +193,8 @@ class _SessionCard extends StatelessWidget {
                       Text('Disetujui Dokter', style: TextStyle(fontSize: 11, color: AppColors.success)),
                     ],
                   )
-                else if (role == UserRole.doctor)
+                // Memanfaatkan helper dari UserModel
+                else if (user?.canWriteDiagnosis == true)
                   ElevatedButton(
                     onPressed: () => context.go('/diagnosis/${session.sessionId}'),
                     style: ElevatedButton.styleFrom(
@@ -219,7 +222,8 @@ class _SessionCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              if (role == UserRole.doctor || role == UserRole.admin)
+              // Memanfaatkan helper dari UserModel untuk akses laporan (Nakes & Admin)
+              if (user?.canViewAllPatients == true)
                 OutlinedButton.icon(
                   onPressed: () => context.go('/report/${session.sessionId}'),
                   icon: const Icon(Icons.description_rounded, size: 14),

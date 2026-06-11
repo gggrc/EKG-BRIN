@@ -1,11 +1,7 @@
 // lib/core/router/app_router.dart
-// Justifikasi: Ziefle & Bay (2005) — navigasi sidebar lebih efisien dari tab 
-// untuk aplikasi dengan ≥7 menu item. go_router untuk declarative routing
-// yang mendukung deep linking di web.
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../models/user_model.dart';
@@ -29,47 +25,86 @@ import '../../features/notifications/notifications_page.dart';
 import '../../features/profile/profile_page.dart';
 import '../../shared/widgets/app_shell.dart';
 
-// Route names
 class AppRoutes {
-  static const landing = '/';
-  static const login = '/login';
+  static const landing  = '/';
+  static const login    = '/login';
   static const register = '/register';
-  static const dashboard = '/dashboard';
-  static const ecgViewer = '/ecg/:sessionId';
-  static const patients = '/patients';
-  static const patientNew = '/patients/new';
+  static const authCallback = '/auth/callback';
+
+  static const dashboard   = '/dashboard';
+  static const ecgViewer   = '/ecg/:sessionId';
+  static const patients    = '/patients';
+  static const patientNew  = '/patients/new';
   static const patientEdit = '/patients/:patientId/edit';
   static const patientDetail = '/patients/:patientId';
   static const acquisition = '/acquisition';
-  static const history = '/history';
-  static const diagnosis = '/diagnosis/:sessionId';
-  static const report = '/report/:sessionId';
-  static const fhirExport = '/fhir';
-  static const adminPanel = '/admin';
-  static const adminUsers = '/admin/users';
-  static const analytics = '/admin/analytics';
+  static const history     = '/history';
+  static const diagnosis   = '/diagnosis/:sessionId';
+  static const report      = '/report/:sessionId';
+  static const fhirExport  = '/fhir';
+  static const adminPanel  = '/admin';
+  static const adminUsers  = '/admin/users';
+  static const analytics   = '/admin/analytics';
   static const notifications = '/notifications';
-  static const profile = '/profile';
+  static const profile     = '/profile';
 }
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
     initialLocation: AppRoutes.landing,
-    redirect: (context, state) {
-      final isAuth = authProvider.isAuthenticated;
-      final isAuthRoute = state.matchedLocation == AppRoutes.login ||
-          state.matchedLocation == AppRoutes.register ||
-          state.matchedLocation == AppRoutes.landing;
+    refreshListenable: authProvider,
+    
+    onException: (context, state, router) {
+      router.go(AppRoutes.login);
+    },
 
-      if (!isAuth && !isAuthRoute) return AppRoutes.login;
-      if (isAuth && state.matchedLocation == AppRoutes.landing) {
-        return AppRoutes.dashboard;
+    redirect: (context, state) {
+      final isLoading = authProvider.isLoading;
+      final isAuth    = authProvider.isAuthenticated;
+      final loc       = state.matchedLocation;
+      final fullUrl   = state.uri.toString();
+
+      if (fullUrl.contains('error=') || fullUrl.contains('error_code=')) {
+        authProvider.clearLoading();
+        return AppRoutes.login;
       }
+
+      // 1. Sedang inisialisasi / loading session
+      if (isLoading) {
+        if (loc == AppRoutes.authCallback) return null;
+        return AppRoutes.authCallback;
+      }
+
+      // 2. Rute-rute publik
+      final isPublicRoute = loc == AppRoutes.login || 
+        loc == AppRoutes.register ||
+        loc == AppRoutes.landing ||
+        loc == AppRoutes.authCallback;
+
+      if (!isAuth && loc == AppRoutes.authCallback) return AppRoutes.login;
+
+      // 3. Belum login + mencoba akses halaman protected → ke login
+      if (!isAuth && !isPublicRoute) return AppRoutes.login;
+
+      // 4. Perubahan Logika Pengalihan Berdasarkan Role Setelah Login Sukses
+      if (isAuth && isPublicRoute) {
+        final role = authProvider.userRole;
+        switch (role) {
+          case UserRole.patient:
+            return AppRoutes.dashboard;
+          case UserRole.admin:
+            return AppRoutes.adminPanel;
+          case UserRole.nakes:
+            return AppRoutes.acquisition;
+          default:
+            return AppRoutes.dashboard;
+        }
+      }
+
       return null;
     },
-    refreshListenable: authProvider,
+
     routes: [
-      // Public routes
       GoRoute(
         path: AppRoutes.landing,
         builder: (context, state) => const LandingPage(),
@@ -82,8 +117,12 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: AppRoutes.register,
         builder: (context, state) => const RegisterPage(),
       ),
+      GoRoute(
+        path: AppRoutes.authCallback,
+        builder: (context, state) => const _AuthCallbackPage(),
+      ),
 
-      // Protected routes with Shell (sidebar + topbar)
+      // ── Protected Shell ────────────────────────────────────────────────────
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
@@ -169,34 +208,28 @@ GoRouter createRouter(AuthProvider authProvider) {
         ],
       ),
     ],
-    errorBuilder: (context, state) => Scaffold(
-      body: Center(
-        child: Text('Halaman tidak ditemukan: ${state.error}'),
-      ),
-    ),
   );
 }
 
-// RBAC Guard helper
-class RoleGuard extends StatelessWidget {
-  final Widget child;
-  final List<UserRole> allowedRoles;
-  final Widget? fallback;
-
-  const RoleGuard({
-    super.key,
-    required this.child,
-    required this.allowedRoles,
-    this.fallback,
-  });
+class _AuthCallbackPage extends StatelessWidget {
+  const _AuthCallbackPage();
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<AuthProvider>().userRole;
-    if (role != null && allowedRoles.contains(role)) return child;
-    return fallback ??
-        const Center(
-          child: Text('Akses tidak diizinkan untuk role Anda.'),
-        );
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              'Memverifikasi akun...',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -149,13 +149,13 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
             onTap: () => setState(() => _showAnnotations = !_showAnnotations),
           ),
           const SizedBox(width: 16),
-          if (role == UserRole.doctor || role == UserRole.admin)
+          if (role == UserRole.nakes || role == UserRole.admin)
             OutlinedButton.icon(
               onPressed: () {},
               icon: const Icon(Icons.download_rounded, size: 16),
               label: const Text('Export PDF', style: TextStyle(fontSize: 12)),
             ),
-          if (role == UserRole.doctor || role == UserRole.admin) ...[
+          if (role == UserRole.nakes || role == UserRole.admin) ...[
             const SizedBox(width: 8),
             ElevatedButton.icon(
               onPressed: () {},
@@ -211,18 +211,18 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
                 const SizedBox(width: 8),
                 _MeasureChip(label: 'Axis', value: a.electricalAxisDeg != null ? '${a.electricalAxisDeg!.round()}°' : '-', isNormal: true),
                 const SizedBox(width: 16),
-                if (a.aiInterpretation != null && (role == UserRole.doctor || role == UserRole.admin))
+                if (a.aiInterpretation != null && (role == UserRole.nakes || role == UserRole.admin))
                   Container(
                     constraints: const BoxConstraints(maxWidth: 400),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppColors.roleDoctor.withOpacity(0.1),
+                      color: AppColors.roleNakes.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.roleDoctor.withOpacity(0.3)),
+                      border: Border.all(color: AppColors.roleNakes.withOpacity(0.3)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.psychology_rounded, color: AppColors.roleDoctor, size: 16),
+                        const Icon(Icons.psychology_rounded, color: AppColors.roleNakes, size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(

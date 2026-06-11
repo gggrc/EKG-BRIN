@@ -23,10 +23,8 @@ class DashboardPage extends StatelessWidget {
     switch (role) {
       case UserRole.patient:
         return const _PatientDashboard();
-      case UserRole.healthcareWorker:
+      case UserRole.nakes:
         return const _NakesDashboard();
-      case UserRole.doctor:
-        return const _DoctorDashboard();
       case UserRole.admin:
         return const _AdminDashboard();
       default:
@@ -113,7 +111,7 @@ class _PatientDashboard extends StatelessWidget {
 }
 
 // ============================================================
-// NAKES DASHBOARD
+// NAKES DASHBOARD (mencakup semua tenaga kesehatan)
 // ============================================================
 class _NakesDashboard extends StatelessWidget {
   const _NakesDashboard();
@@ -123,6 +121,7 @@ class _NakesDashboard extends StatelessWidget {
     final user = context.read<AuthProvider>().currentUser;
     final analytics = MockData.analyticsData;
     final sessions = MockData.ecgSessions;
+    final pending = sessions.where((s) => s.analysis?.isApproved == false).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -137,12 +136,48 @@ class _NakesDashboard extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(child: _StatCard(label: 'Sesi Bulan Ini', value: '${analytics['sessionsThisMonth']}', icon: Icons.monitor_heart_rounded, color: AppColors.secondary)),
               const SizedBox(width: 16),
-              Expanded(child: _StatCard(label: 'Menunggu Diagnosis', value: '${analytics['pendingDiagnosis']}', icon: Icons.pending_rounded, color: AppColors.warning)),
+              Expanded(child: _StatCard(label: 'Menunggu Diagnosis', value: '${analytics['pendingDiagnosis']}', icon: Icons.pending_rounded, color: AppColors.warning, isAlert: (analytics['pendingDiagnosis'] as int) > 0)),
               const SizedBox(width: 16),
               Expanded(child: _StatCard(label: 'HR Rata-rata', value: '${analytics['avgHeartRate']} bpm', icon: Icons.favorite_rounded, color: AppColors.success)),
             ],
           ),
           const SizedBox(height: 24),
+
+          // Pending approvals banner
+          if (pending.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.warningContainer,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.pending_actions_rounded, color: AppColors.warning, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${pending.length} Sesi Menunggu Diagnosis',
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.warningLight),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () => context.go(AppRoutes.history),
+                        child: const Text('Lihat Semua'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ...pending.take(2).map((s) => _EcgSessionCard(session: s, compact: true)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+
           // Quick actions
           Row(
             children: [
@@ -171,7 +206,7 @@ class _NakesDashboard extends StatelessWidget {
                   icon: Icons.people_rounded,
                   title: 'Daftar Pasien',
                   subtitle: 'Kelola semua pasien',
-                  color: AppColors.roleDoctor,
+                  color: AppColors.roleNakes,
                   onTap: () => context.go(AppRoutes.patients),
                 ),
               ),
@@ -198,105 +233,6 @@ class _NakesDashboard extends StatelessWidget {
                     _SectionHeader(title: 'Distribusi Lead'),
                     const SizedBox(height: 12),
                     _LeadDistributionChart(data: Map<String, int>.from(analytics['leadConfigDistribution'])),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// DOCTOR DASHBOARD
-// ============================================================
-class _DoctorDashboard extends StatelessWidget {
-  const _DoctorDashboard();
-
-  @override
-  Widget build(BuildContext context) {
-    final user = context.read<AuthProvider>().currentUser;
-    final analytics = MockData.analyticsData;
-    final sessions = MockData.ecgSessions;
-    final pending = sessions.where((s) => s.analysis?.isApproved == false).toList();
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _GreetingBanner(user: user, subtitle: 'Tinjau dan setujui laporan EKG hari ini'),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(child: _StatCard(label: 'Total Sesi', value: '${analytics['totalSessions']}', icon: Icons.monitor_heart_rounded, color: AppColors.primary)),
-              const SizedBox(width: 16),
-              Expanded(child: _StatCard(label: 'Menunggu Approval', value: '${pending.length}', icon: Icons.pending_actions_rounded, color: AppColors.warning, isAlert: pending.isNotEmpty)),
-              const SizedBox(width: 16),
-              Expanded(child: _StatCard(label: 'Disetujui', value: '${analytics['approvedDiagnosis']}', icon: Icons.check_circle_rounded, color: AppColors.success)),
-              const SizedBox(width: 16),
-              Expanded(child: _StatCard(label: 'FHIR Synced', value: '${analytics['fhirSyncedCount']}', icon: Icons.sync_rounded, color: AppColors.secondary)),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Pending approvals
-          if (pending.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.warningContainer,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.pending_actions_rounded, color: AppColors.warning, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${pending.length} Sesi Menunggu Diagnosis Anda',
-                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.warningLight),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () => context.go(AppRoutes.history),
-                        child: const Text('Lihat Semua'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ...pending.take(2).map((s) => _EcgSessionCard(session: s, compact: true)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  children: [
-                    _SectionHeader(title: 'Sesi EKG Terbaru', onViewAll: () => context.go(AppRoutes.history)),
-                    const SizedBox(height: 12),
-                    ...sessions.take(5).map((s) => _EcgSessionCard(session: s)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Column(
-                  children: [
-                    _SectionHeader(title: 'Distribusi Irama'),
-                    const SizedBox(height: 12),
-                    _RhythmPieChart(data: Map<String, int>.from(analytics['rhythmDistribution'])),
                   ],
                 ),
               ),
@@ -798,7 +734,7 @@ class _RhythmPieChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = [AppColors.success, AppColors.danger, AppColors.secondary, AppColors.warning, AppColors.roleDoctor, AppColors.textMuted];
+    final colors = [AppColors.success, AppColors.danger, AppColors.secondary, AppColors.warning, AppColors.roleNakes, AppColors.textMuted];
 
     return Container(
       padding: const EdgeInsets.all(16),

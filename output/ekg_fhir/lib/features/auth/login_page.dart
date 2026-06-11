@@ -31,16 +31,17 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
-    final success = await auth.login(_emailCtrl.text.trim(), _passCtrl.text);
-    if (success && mounted) {
-      context.go(AppRoutes.dashboard);
-    }
+    await auth.login(_emailCtrl.text.trim(), _passCtrl.text);
+    // Navigasi ke /dashboard ditangani otomatis oleh GoRouter refreshListenable
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    await context.read<AuthProvider>().loginWithGoogle();
   }
 
   Future<void> _loginAsRole(UserRole role) async {
     final auth = context.read<AuthProvider>();
-    final success = await auth.loginAsRole(role);
-    if (success && mounted) context.go(AppRoutes.dashboard);
+    await auth.loginAsRole(role);
   }
 
   @override
@@ -130,18 +131,29 @@ class _LoginPageState extends State<LoginPage> {
                             const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('EKG-BRIN', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                                Text('Sistem HL7 FHIR', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                Text('EKG-BRIN',
+                                    style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimary)),
+                                Text('Sistem HL7 FHIR',
+                                    style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                               ],
                             ),
                           ],
                         ),
                         const SizedBox(height: 32),
-                        const Text('Masuk ke Akun', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                        const Text('Masuk ke Akun',
+                            style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary)),
                         const SizedBox(height: 6),
-                        const Text('Masukkan email dan password Anda', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-                        const SizedBox(height: 32),
+                        const Text('Masukkan email dan password Anda',
+                            style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                        const SizedBox(height: 28),
 
+                        // ── Error message ──
                         if (auth.errorMessage != null)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -155,11 +167,63 @@ class _LoginPageState extends State<LoginPage> {
                               children: [
                                 const Icon(Icons.error_outline, color: AppColors.danger, size: 16),
                                 const SizedBox(width: 8),
-                                Expanded(child: Text(auth.errorMessage!, style: const TextStyle(color: AppColors.dangerLight, fontSize: 13))),
+                                Expanded(
+                                    child: Text(auth.errorMessage!,
+                                        style: const TextStyle(
+                                            color: AppColors.dangerLight, fontSize: 13))),
+                                IconButton(
+                                  onPressed: auth.clearError,
+                                  icon: const Icon(Icons.close, size: 14, color: AppColors.dangerLight),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
                               ],
                             ),
                           ),
 
+                        // ── Google Login ──
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: auth.isLoading ? null : _handleGoogleLogin,
+                            icon: auth.isLoading
+                                ? const SizedBox(
+                                    height: 16,
+                                    width: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : Image.asset(
+                                    'icons/google_logo.png',
+                                    height: 18,
+                                    width: 18,
+                                    errorBuilder: (_, __, ___) =>
+                                        const Icon(Icons.g_mobiledata, size: 20),
+                                  ),
+                            label: const Text('Masuk dengan Google'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: const BorderSide(color: AppColors.borderLight),
+                              foregroundColor: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ── Divider ──
+                        const Row(
+                          children: [
+                            Expanded(child: Divider(color: AppColors.borderLight)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('atau masuk dengan email',
+                                  style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                            ),
+                            Expanded(child: Divider(color: AppColors.borderLight)),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ── Email/Password Form ──
                         Form(
                           key: _formKey,
                           child: Column(
@@ -176,7 +240,7 @@ class _LoginPageState extends State<LoginPage> {
                                   if (!v.contains('@')) return 'Format email tidak valid';
                                   return null;
                                 },
-                               ),
+                              ),
                               const SizedBox(height: 16),
                               TextFormField(
                                 controller: _passCtrl,
@@ -185,8 +249,13 @@ class _LoginPageState extends State<LoginPage> {
                                   labelText: 'Password',
                                   prefixIcon: const Icon(Icons.lock_outlined, size: 18),
                                   suffixIcon: IconButton(
-                                    onPressed: () => setState(() => _obscurePass = !_obscurePass),
-                                    icon: Icon(_obscurePass ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18),
+                                    onPressed: () =>
+                                        setState(() => _obscurePass = !_obscurePass),
+                                    icon: Icon(
+                                        _obscurePass
+                                            ? Icons.visibility_outlined
+                                            : Icons.visibility_off_outlined,
+                                        size: 18),
                                   ),
                                 ),
                                 validator: (v) {
@@ -198,50 +267,39 @@ class _LoginPageState extends State<LoginPage> {
                               const SizedBox(height: 12),
                               Align(
                                 alignment: Alignment.centerRight,
-                                child: TextButton(onPressed: () {}, child: const Text('Lupa password?')),
+                                child: TextButton(
+                                  onPressed: () {},
+                                  child: const Text('Lupa password?'),
+                                ),
                               ),
                               const SizedBox(height: 8),
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
                                   onPressed: auth.isLoading ? null : _handleLogin,
-                                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                                  style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 16)),
                                   child: auth.isLoading
-                                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                      : const Text('Masuk', style: TextStyle(fontSize: 15)),
+                                      ? const SizedBox(
+                                          height: 18,
+                                          width: 18,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2, color: Colors.white))
+                                      : const Text('Masuk',
+                                          style: TextStyle(fontSize: 15)),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 24),
 
-                        // Demo login buttons
-                        const Row(
-                          children: [
-                            Expanded(child: Divider(color: AppColors.borderLight)),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12),
-                              child: Text('Demo Login', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                            ),
-                            Expanded(child: Divider(color: AppColors.borderLight)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: UserRole.values.map((role) => _DemoRoleButton(
-                            role: role,
-                            onTap: () => _loginAsRole(role),
-                            isLoading: auth.isLoading,
-                          )).toList(),
-                        ),
                         const SizedBox(height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('Belum punya akun? ', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                            const Text('Belum punya akun? ',
+                                style: TextStyle(
+                                    fontSize: 14, color: AppColors.textSecondary)),
                             TextButton(
                               onPressed: () => context.go(AppRoutes.register),
                               child: const Text('Daftar'),
@@ -266,14 +324,14 @@ class _DemoRoleButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool isLoading;
 
-  const _DemoRoleButton({required this.role, required this.onTap, required this.isLoading});
+  const _DemoRoleButton(
+      {required this.role, required this.onTap, required this.isLoading});
 
   Color get color {
     switch (role) {
       case UserRole.patient: return AppColors.rolePatient;
-      case UserRole.healthcareWorker: return AppColors.roleNakes;
-      case UserRole.doctor: return AppColors.roleDoctor;
-      case UserRole.admin: return AppColors.roleAdmin;
+      case UserRole.nakes:   return AppColors.roleNakes;
+      case UserRole.admin:   return AppColors.roleAdmin;
     }
   }
 
@@ -294,7 +352,9 @@ class _DemoRoleButton extends StatelessWidget {
           children: [
             Text(role.icon, style: const TextStyle(fontSize: 14)),
             const SizedBox(width: 6),
-            Text(role.shortName, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+            Text(role.shortName,
+                style: TextStyle(
+                    fontSize: 12, color: color, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
