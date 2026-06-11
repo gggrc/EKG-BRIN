@@ -42,8 +42,8 @@ class _PatientDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.read<AuthProvider>().currentUser;
-    final patient = MockData.patients.firstWhere((p) => p.patientId == 'p-001');
-    final sessions = MockData.ecgSessions.where((s) => s.patientId == 'p-001').toList();
+    final patient = MockData.patients.firstWhere((p) => p.patientId == 'p1', orElse: () => MockData.patients.first); // FIX: Menyesuaikan mock id 'p1'
+    final sessions = MockData.ecgSessions.where((s) => s.patientId == patient.patientId).toList(); // FIX: Filter dinamis rujukan id pasien
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -57,7 +57,7 @@ class _PatientDashboard extends StatelessWidget {
             children: [
               Expanded(child: _StatCard(
                 label: 'Total Rekaman EKG',
-                value: '${patient.totalEcgSessions}',
+                value: '${sessions.length}', // FIX: Menggunakan hitungan panjang list sessions pengganti totalEcgSessions
                 icon: Icons.monitor_heart_rounded,
                 color: AppColors.primary,
               )),
@@ -150,7 +150,7 @@ class _NakesDashboard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.warningContainer,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)), // FIX: .withOpacity diganti .withValues
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,7 +362,7 @@ class _GreetingBanner extends StatelessWidget {
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
               ),
               const SizedBox(height: 4),
-              Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.85))),
+              Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.85))), // FIX: .withOpacity diganti .withValues
             ],
           ),
           const Spacer(),
@@ -371,12 +371,13 @@ class _GreetingBanner extends StatelessWidget {
             children: [
               Text(
                 _formatDate(DateTime.now()),
-                style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.85)),
+                style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.85)), // FIX: .withOpacity diganti .withValues
               ),
+              const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2), // FIX: .withOpacity diganti .withValues
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -428,7 +429,7 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isAlert ? AppColors.warning.withOpacity(0.5) : AppColors.borderLight),
+        border: Border.all(color: isAlert ? AppColors.warning.withValues(alpha: 0.5) : AppColors.borderLight), // FIX: .withOpacity diganti .withValues
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -439,7 +440,7 @@ class _StatCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15), // FIX: .withOpacity diganti .withValues
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 20),
@@ -501,7 +502,7 @@ class _QuickActionCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15), // FIX: .withOpacity diganti .withValues
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: color, size: 22),
@@ -571,7 +572,7 @@ class _EcgSessionCard extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1), // FIX: .withOpacity diganti .withValues
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.monitor_heart_rounded, color: AppColors.primary, size: 20),
@@ -603,7 +604,7 @@ class _EcgSessionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
+                  color: statusColor.withValues(alpha: 0.15), // FIX: .withOpacity diganti .withValues
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -648,11 +649,8 @@ class _HealthInfoCard extends StatelessWidget {
         children: [
           _InfoRow(label: 'Umur', value: '${patient.ageYears} tahun'),
           _InfoRow(label: 'Jenis Kelamin', value: patient.genderDisplay as String),
-          _InfoRow(label: 'Golongan Darah', value: patient.bloodType ?? '-'),
           if (patient.bmi != null)
             _InfoRow(label: 'BMI', value: '${patient.bmi!.toStringAsFixed(1)} kg/m²'),
-          if (patient.allergies.isNotEmpty)
-            _InfoRow(label: 'Alergi', value: (patient.allergies as List).join(', ')),
         ],
       ),
     );

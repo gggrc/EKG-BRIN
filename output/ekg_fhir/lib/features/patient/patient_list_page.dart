@@ -1,10 +1,10 @@
 // lib/features/patient/patient_list_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/mock/mock_data.dart';
-import '../../core/models/patient_model.dart';
 import '../../core/router/app_router.dart';
+import '../../core/models/patient_model.dart';
 
 class PatientListPage extends StatefulWidget {
   const PatientListPage({super.key});
@@ -14,16 +14,29 @@ class PatientListPage extends StatefulWidget {
 }
 
 class _PatientListPageState extends State<PatientListPage> {
-  String _search = '';
+  final _supabase = Supabase.instance.client;
+  late Future<List<PatientModel>> _patientsFuture;
+  String _searchQuery = '';
   String _genderFilter = 'Semua';
 
-  List<PatientModel> get _filtered {
-    return MockData.patients.where((p) {
-      final matchSearch = p.fullName.toLowerCase().contains(_search.toLowerCase()) ||
-          p.medicalRecordNumber.toLowerCase().contains(_search.toLowerCase());
-      final matchGender = _genderFilter == 'Semua' || p.genderDisplay == _genderFilter;
-      return matchSearch && matchGender;
-    }).toList();
+  @override
+  void initState() {
+    super.initState();
+    _fetchPatientsFromSupabase();
+  }
+
+  void _fetchPatientsFromSupabase() {
+    setState(() {
+      _patientsFuture = _supabase
+          .from('patients')
+          .select()
+          .order('full_name', ascending: true) 
+          .limit(50) 
+          .then((response) {
+            final List data = response as List;
+            return data.map((json) => PatientModel.fromJson(json)).toList();
+          });
+    });
   }
 
   @override
@@ -33,16 +46,20 @@ class _PatientListPageState extends State<PatientListPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Toolbar
+          // Toolbar Atas
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: TextField(
-                  onChanged: (v) => setState(() => _search = v),
-                  decoration: const InputDecoration(
-                    hintText: 'Cari nama atau nomor rekam medis...',
-                    prefixIcon: Icon(Icons.search, size: 18),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: TextField(
+                    onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                    decoration: const InputDecoration(
+                      hintText: 'Cari nama atau nomor rekam medis...',
+                      prefixIcon: Icon(Icons.search, size: 18),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
                   ),
                 ),
               ),
@@ -65,6 +82,12 @@ class _PatientListPageState extends State<PatientListPage> {
                 onTap: () => setState(() => _genderFilter = 'Perempuan'),
               ),
               const SizedBox(width: 16),
+              IconButton(
+                onPressed: _fetchPatientsFromSupabase,
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: 'Refresh Data',
+              ),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () => context.go(AppRoutes.patientNew),
                 icon: const Icon(Icons.person_add_rounded, size: 16),
@@ -73,13 +96,8 @@ class _PatientListPageState extends State<PatientListPage> {
             ],
           ),
           const SizedBox(height: 16),
-          // Summary row
-          Text(
-            '${_filtered.length} pasien ditemukan',
-            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 12),
-          // Table header
+          
+          // Header Judul Kolom (Sesuai dengan screenshot antarmuka UI Anda)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
@@ -100,14 +118,61 @@ class _PatientListPageState extends State<PatientListPage> {
             ),
           ),
           const SizedBox(height: 4),
-          // Patient rows
+          
+          // Builder Data Riil
           Expanded(
-            child: ListView.separated(
-              itemCount: _filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 2),
-              itemBuilder: (context, i) {
-                final p = _filtered[i];
-                return _PatientRow(patient: p);
+            child: FutureBuilder<List<PatientModel>>(
+              future: _patientsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'Gagal memuat database: ${snapshot.error}',
+                      style: const TextStyle(color: AppColors.danger),
+                    ),
+                  );
+                }
+
+                final allPatients = snapshot.data ?? [];
+
+                final filtered = allPatients.where((p) {
+                  final matchSearch = p.fullName.toLowerCase().contains(_searchQuery) ||
+                      p.medicalRecordNumber.toLowerCase().contains(_searchQuery);
+                  final matchGender = _genderFilter == 'Semua' || p.genderDisplay == _genderFilter;
+                  return matchSearch && matchGender;
+                }).toList();
+
+                // Status jumlah total baris ter-filter
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    // Dapat digunakan jika ingin menyinkronkan counter total eksternal
+                  }
+                });
+
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.person_search_rounded, size: 48, color: AppColors.textMuted.withOpacity(0.5)),
+                        const SizedBox(height: 12),
+                        const Text('Tidak ada data pasien yang ditemukan.', style: TextStyle(color: AppColors.textSecondary)),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 4),
+                  itemBuilder: (context, i) {
+                    return _PatientRow(patient: filtered[i]);
+                  },
+                );
               },
             ),
           ),
@@ -160,9 +225,11 @@ class _PatientRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastEcg = patient.lastEcgDate;
+    final isMale = patient.gender.trim().toUpperCase() == 'M' || patient.gender.trim().toUpperCase() == 'MALE';
+
     return InkWell(
       borderRadius: BorderRadius.circular(8),
+      // PERBAIKAN: Memastikan navigasi mengarah ke rute detail dengan ID pasien dari database
       onTap: () => context.go('/patients/${patient.patientId}'),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -173,17 +240,18 @@ class _PatientRow extends StatelessWidget {
         ),
         child: Row(
           children: [
+            // 1. Nama Pasien
             Expanded(
               flex: 3,
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: (patient.gender == 'M' ? AppColors.primary : AppColors.secondary).withOpacity(0.15),
+                    backgroundColor: (isMale ? AppColors.primary : AppColors.secondary).withOpacity(0.15),
                     child: Text(
-                      patient.fullName[0],
+                      patient.fullName.isNotEmpty ? patient.fullName[0].toUpperCase() : 'P',
                       style: TextStyle(
-                        color: patient.gender == 'M' ? AppColors.primary : AppColors.secondary,
+                        color: isMale ? AppColors.primary : AppColors.secondary,
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                       ),
@@ -191,33 +259,69 @@ class _PatientRow extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(patient.fullName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary), overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      patient.fullName, 
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary), 
+                      overflow: TextOverflow.ellipsis
+                    ),
                   ),
                 ],
               ),
             ),
-            Expanded(flex: 2, child: Text(patient.medicalRecordNumber, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontFamily: 'monospace'))),
-            Expanded(child: Text('${patient.ageYears} th', style: const TextStyle(fontSize: 12, color: AppColors.textPrimary))),
-            Expanded(child: Text(patient.genderDisplay, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary))),
-            Expanded(child: Text(patient.bloodType ?? '-', style: const TextStyle(fontSize: 12, color: AppColors.textPrimary))),
+            // 2. No. Rekam Medis
             Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '${patient.totalEcgSessions} sesi',
-                  style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center,
+              flex: 2, 
+              child: Text(
+                patient.medicalRecordNumber, 
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontFamily: 'monospace')
+              )
+            ),
+            // 3. Usia
+            Expanded(
+              child: Text(
+                '${patient.ageYears} th', 
+                style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)
+              )
+            ),
+            // 4. Gender
+            Expanded(
+              child: Text(
+                patient.genderDisplay, 
+                style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)
+              )
+            ),
+            // 5. Gol. Darah
+            Expanded(
+              child: const Text(
+                '-', 
+                style: TextStyle(fontSize: 12, color: AppColors.textPrimary)
+              )
+            ),
+            // 6. Sesi EKG
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    '0 sesi', 
+                    style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
             ),
-            Expanded(child: Text(
-              lastEcg != null ? '${lastEcg.day}/${lastEcg.month}/${lastEcg.year}' : '-',
-              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-            )),
+            // 7. EKG Terakhir
+            Expanded(
+              child: const Text(
+                '-', 
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary)
+              )
+            ),
+            // 8. Aksi Kontrol
             SizedBox(
               width: 80,
               child: Row(
@@ -227,6 +331,7 @@ class _PatientRow extends StatelessWidget {
                     message: 'Detail',
                     child: IconButton(
                       icon: const Icon(Icons.visibility_rounded, size: 16),
+                      // PERBAIKAN: Tombol ikon mata juga mengarah ke halaman detail yang sama
                       onPressed: () => context.go('/patients/${patient.patientId}'),
                       color: AppColors.textSecondary,
                       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),

@@ -40,7 +40,7 @@ class ReportPage extends StatelessWidget {
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.borderLight),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 8))],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(0, 8))], // FIX: Menggunakan withValues pengganti withOpacity
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,11 +76,11 @@ class ReportPage extends StatelessWidget {
                 const SizedBox(height: 20),
                 // Patient info section
                 _ReportSection(title: 'DATA PASIEN', children: [
-                  _ReportRow(label: 'Nama', value: patient.fullName),
+                  _ReportRow(label: 'Nama Pasien', value: patient.fullName),
                   _ReportRow(label: 'No. Rekam Medis', value: patient.medicalRecordNumber),
                   _ReportRow(label: 'Tanggal Lahir', value: '${patient.birthDate.day}/${patient.birthDate.month}/${patient.birthDate.year}'),
                   _ReportRow(label: 'Jenis Kelamin', value: patient.genderDisplay),
-                  if (patient.nik != null) _ReportRow(label: 'NIK', value: patient.nik!),
+                  // FIX: Menghapus baris NIK karena properti nik sudah tidak ada di model baru
                 ]),
                 const SizedBox(height: 20),
                 _ReportSection(title: 'DATA PEREKAMAN', children: [
@@ -126,7 +126,7 @@ class ReportPage extends StatelessWidget {
                     _ReportSection(title: 'INTERPRETASI AI', children: [
                       Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: AppColors.roleDoctor.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+                        decoration: BoxDecoration(color: AppColors.roleDoctor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)), // FIX: .withOpacity diganti .withValues
                         child: Text(analysis.aiInterpretation!, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.6)),
                       ),
                     ]),
@@ -136,7 +136,7 @@ class ReportPage extends StatelessWidget {
                     _ReportSection(title: 'DIAGNOSIS DOKTER', children: [
                       Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: AppColors.successContainer, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.success.withOpacity(0.2))),
+                        decoration: BoxDecoration(color: AppColors.successContainer, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.success.withValues(alpha: 0.2))), // FIX: .withOpacity diganti .withValues
                         child: Text(analysis.doctorDiagnosis!, style: const TextStyle(fontSize: 13, color: AppColors.successLight, height: 1.6)),
                       ),
                       if (analysis.isApproved == true && analysis.approvedBy != null) ...[
@@ -226,7 +226,7 @@ class _ParamBox extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.all(4),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)), // FIX: .withOpacity diganti .withValues
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -24,8 +24,8 @@ class _ProfilePageState extends State<ProfilePage> {
   String _selectedGender = 'unknown';
 
   final List<Map<String, dynamic>> _genderOptions = [
-    {'value': 'male', 'label': 'Laki-laki', 'icon': Icons.male_rounded},
-    {'value': 'female', 'label': 'Perempuan', 'icon': Icons.female_rounded},
+    {'value': 'male',   'label': 'Laki-laki',  'icon': Icons.man},
+    {'value': 'female', 'label': 'Perempuan',  'icon': Icons.woman},
     {'value': 'unknown', 'label': 'Dirahasiakan', 'icon': Icons.help_outline_rounded},
   ];
 

@@ -1,221 +1,345 @@
 // lib/features/patient/patient_detail_page.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/mock/mock_data.dart';
 import '../../core/router/app_router.dart';
+import '../../core/models/patient_model.dart';
 
-class PatientDetailPage extends StatelessWidget {
+class PatientDetailPage extends StatefulWidget {
   final String patientId;
   const PatientDetailPage({super.key, required this.patientId});
 
   @override
-  Widget build(BuildContext context) {
-    final patient = MockData.patients.firstWhere(
-      (p) => p.patientId == patientId,
-      orElse: () => MockData.patients.first,
-    );
-    final sessions = MockData.ecgSessions.where((s) => s.patientId == patientId).toList();
+  State<PatientDetailPage> createState() => _PatientDetailPageState();
+}
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(onPressed: () => context.go(AppRoutes.patients), icon: const Icon(Icons.arrow_back_rounded), color: AppColors.textSecondary),
-              const SizedBox(width: 8),
-              const Text('Detail Pasien', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-              const Spacer(),
-              OutlinedButton.icon(
-                onPressed: () => context.go('/patients/$patientId/edit'),
-                icon: const Icon(Icons.edit_rounded, size: 16),
-                label: const Text('Edit'),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: () => context.go(AppRoutes.acquisition),
-                icon: const Icon(Icons.monitor_heart_rounded, size: 16),
-                label: const Text('Rekam EKG Baru'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Patient card
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderLight),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundColor: (patient.gender == 'M' ? AppColors.primary : AppColors.secondary).withOpacity(0.15),
-                            child: Text(patient.fullName[0], style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: patient.gender == 'M' ? AppColors.primary : AppColors.secondary)),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(patient.fullName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                                Text(patient.medicalRecordNumber, style: const TextStyle(fontSize: 13, color: AppColors.textMuted, fontFamily: 'monospace')),
-                                const SizedBox(height: 4),
-                                Row(children: [
-                                  _Badge(text: patient.genderDisplay, color: patient.gender == 'M' ? AppColors.primary : AppColors.secondary),
-                                  const SizedBox(width: 8),
-                                  _Badge(text: '${patient.ageYears} tahun', color: AppColors.textSecondary),
-                                  if (patient.bloodType != null) ...[
-                                    const SizedBox(width: 8),
-                                    _Badge(text: patient.bloodType!, color: AppColors.danger),
-                                  ],
-                                ]),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      const Divider(color: AppColors.borderLight),
-                      const SizedBox(height: 16),
-                      _Grid(children: [
-                        _InfoTile(label: 'NIK', value: patient.nik ?? '-'),
-                        _InfoTile(label: 'Tanggal Lahir', value: '${patient.birthDate.day}/${patient.birthDate.month}/${patient.birthDate.year}'),
-                        _InfoTile(label: 'No. Telepon', value: patient.phoneNumber ?? '-'),
-                        _InfoTile(label: 'Alamat', value: patient.address ?? '-'),
-                        if (patient.heightCm != null) _InfoTile(label: 'Tinggi', value: '${patient.heightCm} cm'),
-                        if (patient.weightKg != null) _InfoTile(label: 'Berat', value: '${patient.weightKg} kg'),
-                        if (patient.bmi != null) _InfoTile(label: 'BMI', value: '${patient.bmi!.toStringAsFixed(1)} kg/m²'),
-                      ]),
-                      if (patient.allergies.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        const Text('Alergi', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          children: patient.allergies.map((a) => Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: AppColors.dangerContainer, borderRadius: BorderRadius.circular(4)),
-                            child: Text(a, style: const TextStyle(fontSize: 11, color: AppColors.dangerLight)),
-                          )).toList(),
-                        ),
-                      ],
-                      if (patient.currentMedications.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        const Text('Obat Saat Ini', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          children: patient.currentMedications.map((m) => Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: AppColors.primaryContainer, borderRadius: BorderRadius.circular(4)),
-                            child: Text(m, style: const TextStyle(fontSize: 11, color: AppColors.primaryLight)),
-                          )).toList(),
-                        ),
-                      ],
-                    ],
-                  ),
+class _PatientDetailPageState extends State<PatientDetailPage> {
+  final _supabase = Supabase.instance.client;
+  late Future<PatientModel?> _patientFuture;
+  late Future<List<dynamic>> _ecgSessionsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPatientData();
+  }
+
+  void _loadPatientData() {
+    // FIX: Menghapus 'as Map<String, dynamic>' atau cast manual yang tidak perlu di baris ini
+    _patientFuture = _supabase
+        .from('patients')
+        .select()
+        .eq('patient_id', widget.patientId)
+        .maybeSingle()
+        .then((response) {
+          if (response == null) return null;
+          return PatientModel.fromJson(response);
+        });
+
+    _ecgSessionsFuture = _supabase
+        .from('ecg_sessions')
+        .select()
+        .eq('patient_id', widget.patientId)
+        .order('examination_time', ascending: false)
+        .then((response) => response as List<dynamic>);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PatientModel?>(
+      future: _patientFuture,
+      builder: (context, patientSnapshot) {
+        if (patientSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (patientSnapshot.hasError || !patientSnapshot.hasData || patientSnapshot.data == null) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                margin: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderLight),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.warning),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Data Gagal Dimuat',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Pasien dengan ID "${widget.patientId}" tidak ditemukan di database Supabase.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () => context.go(AppRoutes.patients),
+                      icon: const Icon(Icons.arrow_back, size: 16),
+                      label: const Text('Kembali ke Daftar Pasien'),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 24),
-              // EKG sessions
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Text('Riwayat EKG', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: AppColors.primaryContainer, borderRadius: BorderRadius.circular(4)),
-                          child: Text('${sessions.length}', style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w700)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (sessions.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(32),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.borderLight),
-                        ),
-                        child: const Center(child: Text('Belum ada rekaman EKG', style: TextStyle(color: AppColors.textMuted))),
-                      )
-                    else
-                      ...sessions.map((s) {
-                        final a = s.analysis;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(16),
+            ),
+          );
+        }
+
+        final patient = patientSnapshot.data!;
+        final isMale = patient.gender.trim().toUpperCase() == 'M' || patient.gender.trim().toUpperCase() == 'L';
+
+        return FutureBuilder<List<dynamic>>(
+          future: _ecgSessionsFuture,
+          builder: (context, sessionsSnapshot) {
+            final sessions = sessionsSnapshot.data ?? [];
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header kontrol atas
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => context.go(AppRoutes.patients), 
+                        icon: const Icon(Icons.arrow_back_rounded), 
+                        color: AppColors.textSecondary
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Detail Pasien', 
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)
+                      ),
+                      const Spacer(),
+                      OutlinedButton.icon(
+                        onPressed: () => context.go('/patients/${widget.patientId}/edit'),
+                        icon: const Icon(Icons.edit_rounded, size: 16),
+                        label: const Text('Edit'),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => context.go(AppRoutes.acquisition),
+                        icon: const Icon(Icons.monitor_heart_rounded, size: 16),
+                        label: const Text('Rekam EKG Baru'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Layout Grid Utama
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Kolom Kiri: Kartu Informasi Utama Pasien
+                      Expanded(
+                        flex: 1,
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
                             color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: AppColors.borderLight),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.monitor_heart_rounded, color: AppColors.primary, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(s.leadConfigDisplay, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                                  const Spacer(),
-                                  Text(
-                                    '${s.examinationTime.day}/${s.examinationTime.month}/${s.examinationTime.year}',
-                                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                  CircleAvatar(
+                                    radius: 32,
+                                    backgroundColor: (isMale ? AppColors.primary : AppColors.secondary).withValues(alpha: 0.15),
+                                    child: Text(
+                                      patient.fullName.isNotEmpty ? patient.fullName[0].toUpperCase() : 'P', 
+                                      style: TextStyle(
+                                        fontSize: 28, 
+                                        fontWeight: FontWeight.w700, 
+                                        color: isMale ? AppColors.primary : AppColors.secondary
+                                      )
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          patient.fullName, 
+                                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          "No. RM: ${patient.medicalRecordNumber}", 
+                                          style: const TextStyle(fontSize: 13, color: AppColors.textMuted, fontFamily: 'monospace')
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            _Badge(text: patient.genderDisplay, color: isMale ? AppColors.primary : AppColors.secondary),
+                                            const SizedBox(width: 8),
+                                            _Badge(text: '${patient.ageYears} tahun', color: AppColors.textSecondary),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
-                              if (a != null) ...[
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    if (a.heartRateBpm != null)
-                                      _MiniChip(label: 'HR: ${a.heartRateBpm} bpm', isNormal: a.isHeartRateNormal),
-                                    const SizedBox(width: 6),
-                                    if (a.rhythmType != null)
-                                      _MiniChip(label: a.rhythmType!, isNormal: a.rhythmType == 'Sinus Normal'),
-                                  ],
-                                ),
-                              ],
-                              const SizedBox(height: 8),
-                              ElevatedButton(
-                                onPressed: () => context.go('/ecg/${s.sessionId}'),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                child: const Text('Lihat EKG', style: TextStyle(fontSize: 11)),
+                              const SizedBox(height: 20),
+                              const Divider(color: AppColors.borderLight),
+                              const SizedBox(height: 16),
+                              
+                              // Blok Informasi Fisik & Medis
+                              _Grid(
+                                children: [
+                                  _InfoTile(
+                                    label: 'Tanggal Lahir', 
+                                    value: '${patient.birthDate.day} ${_getMonthName(patient.birthDate.month)} ${patient.birthDate.year}'
+                                  ),
+                                  // FIX: Memeriksa kondisi null sebelum menggunakan properti .round()
+                                  _InfoTile(
+                                    label: 'Tinggi Badan', 
+                                    value: patient.heightCm != null ? '${patient.heightCm!.round()} cm' : '-'
+                                  ),
+                                  _InfoTile(
+                                    label: 'Berat Badan', 
+                                    value: patient.weightKg != null ? '${patient.weightKg} kg' : '-'
+                                  ),
+                                  _InfoTile(
+                                    label: 'Indeks BMI', 
+                                    value: patient.bmi != null ? '${patient.bmi!.toStringAsFixed(1)} kg/m²' : '-'
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        );
-                      }),
-                  ],
-                ),
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      
+                      // Kolom Kanan: Daftar Riwayat Sesi EKG
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'Riwayat Pemeriksaan EKG', 
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.1), 
+                                    borderRadius: BorderRadius.circular(4)
+                                  ),
+                                  child: Text(
+                                    '${sessions.length}', 
+                                    style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w700)
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            
+                            if (sessions.isEmpty)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(32),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.borderLight),
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    'Belum ada riwayat rekaman EKG di database.', 
+                                    style: TextStyle(color: AppColors.textMuted, fontSize: 13)
+                                  )
+                                ),
+                              )
+                            else
+                              ...sessions.map((s) {
+                                final time = s['examination_time'] != null ? DateTime.parse(s['examination_time']) : DateTime.now();
+                                final config = s['lead_configuration'] ?? 'twelveLead';
+                                final displayConfig = config == 'sixLead' ? '6-Lead' : '12-Lead';
+                                
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surface,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: AppColors.borderLight),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.monitor_heart_rounded, color: AppColors.primary, size: 24),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              displayConfig, 
+                                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)
+                                            ),
+                                            Text(
+                                              'Perangkat: ${s['device_name'] ?? '-'}', 
+                                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)
+                                            ),
+                                            Text(
+                                              'Waktu: ${time.day}/${time.month}/${time.year} ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+                                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () => context.go('/ecg/${s['session_id']}'),
+                                        style: ElevatedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          minimumSize: Size.zero,
+                                        ),
+                                        child: const Text('Lihat', style: TextStyle(fontSize: 12)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    if (month >= 1 && month <= 12) return months[month - 1];
+    return '';
   }
 }
 
@@ -229,7 +353,7 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(text, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
@@ -244,9 +368,9 @@ class _Grid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 0,
-      runSpacing: 0,
-      children: children.asMap().entries.map((e) => SizedBox(width: 200, child: e.value)).toList(),
+      spacing: 16,
+      runSpacing: 16,
+      children: children.map((widget) => SizedBox(width: 140, child: widget)).toList(),
     );
   }
 }
@@ -258,35 +382,13 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniChip extends StatelessWidget {
-  final String label;
-  final bool isNormal;
-  const _MiniChip({required this.label, required this.isNormal});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isNormal ? AppColors.success : AppColors.warning;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+      ],
     );
   }
 }
