@@ -24,10 +24,19 @@ hasil/**/*.png
 hasil_universal/*.png
 # folder output hasil run_ecg.py / run_any.py (JSON kecil boleh, gambar tidak)
 
-# ===== Laporan & ilustrasi (DOKUMENTASI lokal; tim cukup baca kode + hasil JSON) =====
-laporan_ekg.html
+# ===== Laporan utama: laporan_ekg.html DI-PUSH (mandiri, gambar ter-embed) =====
+# aset & data turunan-nya TIDAK (bisa dibuat ulang oleh skripnya):
 lap_img/
 metrik_hasil.json
+vektor_detail.json
+
+# ===== Eksperimen digitalisasi foto publikasi 3x4 (DITUNDA, tak ikut) =====
+12_leadpublikasi/
+hasil_publikasi/
+uji_publikasi/
+build_laporan_3x4.py
+digitize_3x4.py
+laporan_publikasi_3x4.html
 
 # ===== Python =====
 __pycache__/
