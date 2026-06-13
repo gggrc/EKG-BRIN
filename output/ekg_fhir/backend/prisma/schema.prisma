@@ -61,50 +61,47 @@ model EcgSession {
 
   patient_id         String   @db.Uuid
   device_id          String   @db.Uuid
-
   created_by         String?  @db.Uuid
 
   examination_time   DateTime
   duration_sec       Int
   lead_configuration String   @db.VarChar(100)
+
   status             String   @db.VarChar(50)
   source_type        String   @db.VarChar(50)
 
   patient            Patient  @relation(fields: [patient_id], references: [patient_id], onDelete: Cascade)
   device             Device   @relation(fields: [device_id], references: [device_id], onDelete: Restrict)
   creator            User?    @relation("CreatedByUser", fields: [created_by], references: [user_id], onDelete: SetNull)
-
-  ecg_signal_data    EcgSignalData?
+  ecg_signal_data    EcgSignalData[]
   ecg_analysis       EcgAnalysis?
 
   @@index([patient_id])
   @@index([device_id])
   @@index([created_by])
-
   @@map("ecg_sessions")
 }
 
 model EcgSignalData {
-  signal_id        BigInt @id @default(autoincrement())
-  session_id       String @unique @db.Uuid
-
-  lead_type        String @db.VarChar(50)
+  signal_id        BigInt  @id @default(autoincrement())
+  session_id       String  @db.Uuid
+  lead_type        String  @db.VarChar(10)
+  confidence       String  @default("high") @db.VarChar(10)
   sampling_rate    Int
   sample_count     Int
   signal_data      Json
   min_voltage_mv   Float?
   max_voltage_mv   Float?
-
   session          EcgSession @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
 
   @@index([session_id])
-
+  @@index([session_id, lead_type])
   @@map("ecg_signal_data")
 }
 
 model EcgAnalysis {
-  analysis_id      String @id @default(uuid()) @db.Uuid
-  session_id       String @unique @db.Uuid
+  analysis_id      String  @id @default(uuid()) @db.Uuid
+  session_id       String  @unique @db.Uuid
 
   heart_rate_bpm   Int?
   rhythm_type      String? @db.VarChar(100)
@@ -121,6 +118,5 @@ model EcgAnalysis {
   session          EcgSession @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
 
   @@index([session_id])
-
   @@map("ecg_analysis")
 }

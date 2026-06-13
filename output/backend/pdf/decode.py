@@ -42,7 +42,7 @@ def predict_mask(net, img, device="cuda", tile=256, overlap=32, thr=0.5):
                 patch = np.pad(patch, ((0, tile - ph), (0, tile - pw), (0, 0)),
                                constant_values=1.0)
             t = torch.from_numpy(patch.transpose(2, 0, 1))[None].to(device)
-            with torch.cuda.amp.autocast(enabled=(device == "cuda")):
+            with torch.amp.autocast('cuda', enabled=(device == "cuda")):
                 p = torch.sigmoid(net(t))[0, 0].float().cpu().numpy()
             prob[y:y + ph, xx:xx + pw] += p[:ph, :pw]
             cnt[y:y + ph, xx:xx + pw] += 1.0
@@ -73,7 +73,7 @@ def predict_mask_offset(net, img, device="cuda", tile=256, overlap=32, thr=0.5):
                 patch = np.pad(patch, ((0, tile - ph), (0, tile - pw), (0, 0)),
                                constant_values=1.0)
             t = torch.from_numpy(patch.transpose(2, 0, 1))[None].to(device)
-            with torch.cuda.amp.autocast(enabled=(device == "cuda")):
+            with torch.amp.autocast('cuda', enabled=(device == "cuda")):
                 out = net(t)[0].float().cpu().numpy()
             prob[y:y + ph, xx:xx + pw] += 1 / (1 + np.exp(-out[0, :ph, :pw]))
             offs[y:y + ph, xx:xx + pw] += out[1, :ph, :pw] * 100.0  # mV->px
@@ -422,7 +422,7 @@ def decode_offset(mask, offset, lanes, x_lo, x_hi, px_mv):
 
 def load_net(ckpt_path, device="cuda"):
     from unet import UNet
-    ck = torch.load(ckpt_path, map_location=device)
+    ck = torch.load(ckpt_path, map_location=device, weights_only=False)
     net = UNet(in_ch=ck.get("in_ch", 3), out_ch=ck.get("out_ch", 1),
                base=ck.get("base", 32)).to(device)
     net.load_state_dict(ck["model"])

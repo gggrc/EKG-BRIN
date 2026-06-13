@@ -1,0 +1,22 @@
+# --- Repositori Tambahan Resmi PyTorch GPU ---
+--extra-index-url https://download.pytorch.org/whl/cu124
+
+# --- Akselerasi GPU untuk RTX 5060 (Python 3.10 di WSL2) ---
+torch==2.5.1+cu124
+torchvision==0.20.1+cu124
+
+# --- Komputasi Numerik & Computer Vision (WSL Headless Version) ---
+numpy==1.26.4
+scipy==1.12.0
+opencv-python-headless>=4.8.0.0
+
+# --- Ekstraksi & Rendering Dokumen PDF ---
+pymupdf>=1.24.0
+
+# --- Sinkronisasi Database Postgres / Supabase ---
+psycopg2-binary>=2.9.0
+
+# --- Web Server Backend ---
+fastapi
+uvicorn
+python-multipart
