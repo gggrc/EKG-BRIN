@@ -1,17 +1,13 @@
 // lib/features/ecg_viewer/ecg_viewer_page.dart
-// Halaman utama EKG Viewer — 6-lead dan 12-lead
-// Justifikasi layout: Goldberger et al. (2000) "Clinical Electrocardiography" —
-// standar klinis 12-lead dalam 3 kolom × 4 baris. Cai et al. (2022) — dokter
-// perlu zoom 2-4x untuk analisis gelombang P, QRS, T.
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/models/user_model.dart';
 import '../../core/models/ecg_models.dart';
-import '../../core/mock/mock_data.dart';
 import 'widgets/six_lead_view.dart';
 import 'widgets/twelve_lead_view.dart';
 
@@ -24,32 +20,159 @@ class EcgViewerPage extends StatefulWidget {
 }
 
 class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateMixin {
-  late TabController _tabController;
+  TabController? _tabController; // Diubah menjadi nullable karena diinisialisasi setelah data DB masuk
   EcgSession? _session;
+  bool _isLoadingFromDb = true;
+  String? _errorMessage;
+
   double _zoomLevel = 1.0;
   bool _showGrid = true;
   bool _showAnnotations = true;
-  String _selectedLead = 'II'; // For rhythm strip
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _loadSession();
+    _loadSessionFromSupabase();
   }
 
-  void _loadSession() {
-    final sessions = MockData.ecgSessions;
+  /// Menarik data riwayat sinyal digital dan analisis medis dari PostgreSQL via Supabase client
+  Future<void> _loadSessionFromSupabase() async {
     try {
-      _session = sessions.firstWhere((s) => s.sessionId == widget.sessionId);
-    } catch (_) {
-      _session = sessions.first;
+      final response = await Supabase.instance.client
+          .from('ecg_sessions')
+          .select('''
+            session_id,
+            patient_id,
+            device_id,
+            examination_time,
+            duration_sec,
+            lead_configuration,
+            status,
+            source_type,
+            patients (full_name),
+            devices (device_name),
+            ecg_analysis (
+              analysis_id,
+              heart_rate_bpm,
+              rhythm_type,
+              pr_interval,
+              qrs_duration,
+              qt_interval,
+              qtc_interval_ms,
+              electrical_axis,
+              diagnosis
+            ),
+            ecg_signal_data (
+              signal_id,
+              lead_type,
+              sampling_rate,
+              sample_count,
+              signal_data
+            )
+          ''')
+          .eq('session_id', widget.sessionId)
+          .maybeSingle();
+
+      if (response == null) {
+        setState(() {
+          _errorMessage = "Sesi rekam medis EKG tidak ditemukan di PostgreSQL server.";
+          _isLoadingFromDb = false;
+        });
+        return;
+      }
+
+      final patientData = response['patients'] as Map<String, dynamic>?;
+      final deviceData = response['devices'] as Map<String, dynamic>?;
+      final List signalsList = response['ecg_signal_data'] as List? ?? [];
+
+      // Menangani kembalian data ecg_analysis yang dibungkus di dalam List/JSArray oleh Supabase
+      Map<String, dynamic>? analysisMap;
+      final rawAnalysis = response['ecg_analysis'];
+      if (rawAnalysis is List && rawAnalysis.isNotEmpty) {
+        analysisMap = rawAnalysis.first as Map<String, dynamic>?;
+      } else if (rawAnalysis is Map<String, dynamic>) {
+        analysisMap = rawAnalysis;
+      }
+
+      // Rekonstruksi struktur data Map dari multiple row di tabel ecg_signal_data
+      Map<String, List<double>> reconstructedSignals = {};
+      int sampleRate = 500;
+      int sampleCount = 0;
+
+      for (var row in signalsList) {
+        final String leadName = row['lead_type'] ?? 'Unknown';
+        sampleRate = row['sampling_rate'] ?? 500;
+        sampleCount = row['sample_count'] ?? 0;
+
+        dynamic rawJsonData = row['signal_data'];
+        List<double> signalPoints = [];
+
+        if (rawJsonData is String) {
+          rawJsonData = jsonDecode(rawJsonData);
+        }
+        if (rawJsonData is List) {
+          signalPoints = rawJsonData.map((point) => double.tryParse(point.toString()) ?? 0.0).toList();
+        }
+        reconstructedSignals[leadName] = signalPoints;
+      }
+
+      // Deteksi konfigurasi lead secara dinamis dari database
+      final String rawLeadConfig = (response['lead_configuration'] ?? '12-Lead').toString().toLowerCase();
+      final bool isSixLead = rawLeadConfig.contains('six') || rawLeadConfig.contains('6');
+      final currentLeadConfig = isSixLead ? LeadConfiguration.sixLead : LeadConfiguration.twelveLead;
+
+      // Inisialisasi TabController secara dinamis (Hanya 1 Tab aktif sesuai konfigurasi database)
+      _tabController = TabController(length: 1, vsync: this);
+
+      setState(() {
+        _session = EcgSession(
+          sessionId: response['session_id'],
+          patientId: response['patient_id'] ?? '',
+          patientName: patientData?['full_name'] ?? 'Pasien Anonim',
+          deviceId: response['device_id'] ?? '',
+          deviceName: deviceData?['device_name'] ?? response['source_type'] ?? 'Digital Record',
+          examinationTime: DateTime.parse(response['examination_time']),
+          durationSec: response['duration_sec'] ?? 10,
+          leadConfiguration: currentLeadConfig,
+          status: response['status'] == 'completed' ? EcgSessionStatus.completed : EcgSessionStatus.processing,
+          sourceType: SourceType.deviceUpload,
+          signalData: EcgSignalData(
+            signalId: 0,
+            sessionId: response['session_id'],
+            leadType: response['lead_configuration'] ?? '12-Lead',
+            samplingRate: sampleRate,
+            sampleCount: sampleCount,
+            signalData: reconstructedSignals,
+          ),
+          analysis: analysisMap == null
+              ? null
+              : EcgAnalysis(
+                  analysisId: analysisMap['analysis_id'] ?? '',
+                  sessionId: response['session_id'],
+                  heartRateBpm: analysisMap['heart_rate_bpm'],
+                  rhythmType: analysisMap['rhythm_type'],
+                  prIntervalMs: (analysisMap['pr_interval'] as num?)?.toDouble(),
+                  qrsDurationMs: (analysisMap['qrs_duration'] as num?)?.toDouble(),
+                  qtIntervalMs: (analysisMap['qt_interval'] as num?)?.toDouble(),
+                  qtcIntervalMs: (analysisMap['qtc_interval_ms'] as num?)?.toDouble(),
+                  electricalAxisDeg: (analysisMap['electrical_axis'] as num?)?.toDouble(),
+                  doctorDiagnosis: analysisMap['diagnosis'], 
+                  isApproved: true,
+                ),
+        );
+        _isLoadingFromDb = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = "Gagal memproses gelombang EKG dari Supabase: $e";
+        _isLoadingFromDb = false;
+      });
     }
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
@@ -57,46 +180,70 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
   Widget build(BuildContext context) {
     final role = context.watch<AuthProvider>().userRole;
 
-    if (_session == null) {
-      return const Center(child: CircularProgressIndicator());
+    if (_isLoadingFromDb) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Memuat gelombang EKG dari database...', style: TextStyle(color: AppColors.textSecondary)),
+          ],
+        ),
+      );
     }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(_errorMessage!, style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold)),
+        ),
+      );
+    }
+
+    final isSixLeadMode = _session!.leadConfiguration == LeadConfiguration.sixLead;
 
     return Column(
       children: [
-        // Header with session info + controls
+        // Header info pasien dan control slider zoom
         _buildHeader(role),
-        // Tabs: 6-Lead / 12-Lead
+        
+        // Tab Bar dinamis yang mengunci pilihan sesuai tipe lead_configuration dari database
         Container(
           color: AppColors.surface,
           child: TabBar(
             controller: _tabController,
-            tabs: const [
-              Tab(text: '6-Lead'),
-              Tab(text: '12-Lead'),
+            tabs: [
+              Tab(text: isSixLeadMode ? '6-Lead' : '12-Lead'),
             ],
           ),
         ),
-        // Content
+        
+        // Canvas Gambar Grafik Sinyal Gelombang sesuai mode data
         Expanded(
           child: TabBarView(
             controller: _tabController,
             children: [
-              SixLeadView(
-                session: _session!,
-                zoomLevel: _zoomLevel,
-                showGrid: _showGrid,
-                showAnnotations: _showAnnotations,
-              ),
-              TwelveLeadView(
-                session: _session!,
-                zoomLevel: _zoomLevel,
-                showGrid: _showGrid,
-                showAnnotations: _showAnnotations,
-              ),
+              if (isSixLeadMode)
+                SixLeadView(
+                  session: _session!,
+                  zoomLevel: _zoomLevel,
+                  showGrid: _showGrid,
+                  showAnnotations: _showAnnotations,
+                )
+              else
+                TwelveLeadView(
+                  session: _session!,
+                  zoomLevel: _zoomLevel,
+                  showGrid: _showGrid,
+                  showAnnotations: _showAnnotations,
+                ),
             ],
           ),
         ),
-        // Bottom: Analysis panel
+        
+        // Panel Bawah: Interpretasi Algoritma & Hasil Diagnosis Dokter
         if (_session!.analysis != null) _buildAnalysisPanel(role),
       ],
     );
@@ -112,7 +259,6 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
       ),
       child: Row(
         children: [
-          // Patient info
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -124,7 +270,6 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
             ],
           ),
           const Spacer(),
-          // Controls
           _ControlButton(icon: Icons.zoom_out, onTap: () => setState(() => _zoomLevel = (_zoomLevel - 0.25).clamp(0.5, 4.0)), tooltip: 'Zoom out'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -135,34 +280,9 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
           ),
           _ControlButton(icon: Icons.zoom_in, onTap: () => setState(() => _zoomLevel = (_zoomLevel + 0.25).clamp(0.5, 4.0)), tooltip: 'Zoom in'),
           const SizedBox(width: 8),
-          _ToggleButton(
-            icon: Icons.grid_4x4_rounded,
-            label: 'Grid',
-            active: _showGrid,
-            onTap: () => setState(() => _showGrid = !_showGrid),
-          ),
+          _ToggleButton(icon: Icons.grid_4x4_rounded, label: 'Grid', active: _showGrid, onTap: () => setState(() => _showGrid = !_showGrid)),
           const SizedBox(width: 8),
-          _ToggleButton(
-            icon: Icons.label_rounded,
-            label: 'Anotasi',
-            active: _showAnnotations,
-            onTap: () => setState(() => _showAnnotations = !_showAnnotations),
-          ),
-          const SizedBox(width: 16),
-          if (role == UserRole.nakes || role == UserRole.admin)
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.download_rounded, size: 16),
-              label: const Text('Export PDF', style: TextStyle(fontSize: 12)),
-            ),
-          if (role == UserRole.nakes || role == UserRole.admin) ...[
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.share_rounded, size: 16),
-              label: const Text('FHIR Export', style: TextStyle(fontSize: 12)),
-            ),
-          ],
+          _ToggleButton(icon: Icons.label_rounded, label: 'Anotasi', active: _showAnnotations, onTap: () => setState(() => _showAnnotations = !_showAnnotations)),
         ],
       ),
     );
@@ -171,7 +291,7 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
   Widget _buildAnalysisPanel(UserRole? role) {
     final a = _session!.analysis!;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.borderLight)),
@@ -179,16 +299,7 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Text('Analisis', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-              const SizedBox(width: 12),
-              if (a.isApproved == true)
-                _StatusBadge(label: 'Disetujui Dokter', color: AppColors.success)
-              else
-                _StatusBadge(label: 'Belum Disetujui', color: AppColors.warning),
-            ],
-          ),
+          const Text('Hasil Analisis Rekam Medis (PostgreSQL)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -201,44 +312,22 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
                   subtext: a.heartRateCategory,
                 ),
                 const SizedBox(width: 8),
-                _MeasureChip(label: 'Irama', value: a.rhythmType ?? '-', isNormal: a.rhythmType == 'Sinus Normal'),
+                _MeasureChip(label: 'Irama', value: a.rhythmType ?? '-', isNormal: a.rhythmType?.toLowerCase() == 'normal sinus rhythm' || a.rhythmType?.toLowerCase() == 'sinus normal'),
                 const SizedBox(width: 8),
-                _MeasureChip(label: 'PR Interval', value: a.prIntervalMs != null ? '${a.prIntervalMs!.round()} ms' : '-', isNormal: a.prIntervalMs != null && a.prIntervalMs! >= 120 && a.prIntervalMs! <= 200),
+                _MeasureChip(label: 'PR Interval', value: a.prIntervalMs != null ? '${a.prIntervalMs!.round()} ms' : '-', isNormal: true),
                 const SizedBox(width: 8),
-                _MeasureChip(label: 'QRS', value: a.qrsDurationMs != null ? '${a.qrsDurationMs!.round()} ms' : '-', isNormal: a.qrsDurationMs != null && a.qrsDurationMs! <= 120),
+                _MeasureChip(label: 'QRS Duration', value: a.qrsDurationMs != null ? '${a.qrsDurationMs!.round()} ms' : '-', isNormal: true),
                 const SizedBox(width: 8),
                 _MeasureChip(label: 'QTc', value: a.qtcIntervalMs != null ? '${a.qtcIntervalMs!.round()} ms' : '-', isNormal: a.isQtcNormal),
                 const SizedBox(width: 8),
-                _MeasureChip(label: 'Axis', value: a.electricalAxisDeg != null ? '${a.electricalAxisDeg!.round()}°' : '-', isNormal: true),
-                const SizedBox(width: 16),
-                if (a.aiInterpretation != null && (role == UserRole.nakes || role == UserRole.admin))
-                  Container(
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.roleNakes.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.roleNakes.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.psychology_rounded, color: AppColors.roleNakes, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            a.aiInterpretation!,
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.4),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                _MeasureChip(label: 'Electrical Axis', value: a.electricalAxisDeg != null ? '${a.electricalAxisDeg!.round()}°' : '-', isNormal: true),
               ],
             ),
           ),
-          if (a.doctorDiagnosis != null) ...[
-            const SizedBox(height: 12),
+          if (a.doctorDiagnosis != null && a.doctorDiagnosis!.isNotEmpty) ...[
+            const SizedBox(height: 16),
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.successContainer,
@@ -247,9 +336,9 @@ class _EcgViewerPageState extends State<EcgViewerPage> with TickerProviderStateM
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.local_hospital_rounded, color: AppColors.success, size: 16),
+                  const Icon(Icons.local_hospital_rounded, color: AppColors.success, size: 18),
                   const SizedBox(width: 8),
-                  const Text('Diagnosis: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success)),
+                  const Text('Diagnosis Klinis: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success)),
                   Expanded(
                     child: Text(a.doctorDiagnosis!, style: const TextStyle(fontSize: 12, color: AppColors.successLight)),
                   ),
@@ -271,7 +360,6 @@ class _ControlButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final String tooltip;
-
   const _ControlButton({required this.icon, required this.onTap, required this.tooltip});
 
   @override
@@ -284,10 +372,8 @@ class _ControlButton extends StatelessWidget {
         child: Container(
           width: 32,
           height: 32,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant,
-            borderRadius: BorderRadius.circular(6),
-          ),
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(6)),
           child: Icon(icon, size: 16, color: AppColors.textSecondary),
         ),
       ),
@@ -300,7 +386,6 @@ class _ToggleButton extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
-
   const _ToggleButton({required this.icon, required this.label, required this.active, required this.onTap});
 
   @override
@@ -316,7 +401,6 @@ class _ToggleButton extends StatelessWidget {
           border: active ? Border.all(color: AppColors.primary.withOpacity(0.3)) : null,
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 14, color: active ? AppColors.primary : AppColors.textMuted),
             const SizedBox(width: 4),
@@ -328,31 +412,11 @@ class _ToggleButton extends StatelessWidget {
   }
 }
 
-class _StatusBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _StatusBadge({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
-    );
-  }
-}
-
 class _MeasureChip extends StatelessWidget {
   final String label;
   final String value;
   final bool isNormal;
   final String? subtext;
-
   const _MeasureChip({required this.label, required this.value, required this.isNormal, this.subtext});
 
   @override
@@ -369,8 +433,7 @@ class _MeasureChip extends StatelessWidget {
         children: [
           Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
           Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color, fontFamily: 'monospace')),
-          if (subtext != null)
-            Text(subtext!, style: TextStyle(fontSize: 9, color: color.withOpacity(0.7))),
+          if (subtext != null) Text(subtext!, style: TextStyle(fontSize: 9, color: color.withOpacity(0.7))),
         ],
       ),
     );
